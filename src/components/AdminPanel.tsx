@@ -18,6 +18,7 @@ import {
   RotateCcw,
   Film
 } from 'lucide-react';
+import { saveProjectToFirestore, deleteProjectFromFirestore, fetchLeadsFromFirestore } from '../lib/firebase';
 
 export interface Project {
   id: string;
@@ -75,15 +76,23 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
       setIsAuthenticated(true);
     }
 
-    // Load leads
-    const storedLeads = localStorage.getItem('arc_inquiries');
-    if (storedLeads) {
-      try {
-        setLeads(JSON.parse(storedLeads));
-      } catch (e) {
-        console.error(e);
+    // Load leads from Firestore DB & fallback to local
+    async function loadLeads() {
+      const fsLeads = await fetchLeadsFromFirestore();
+      if (fsLeads && fsLeads.length > 0) {
+        setLeads(fsLeads);
+      } else {
+        const storedLeads = localStorage.getItem('arc_inquiries');
+        if (storedLeads) {
+          try {
+            setLeads(JSON.parse(storedLeads));
+          } catch (e) {
+            console.error(e);
+          }
+        }
       }
     }
+    loadLeads();
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -119,7 +128,7 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
     }
   };
 
-  const handleSaveProject = (e: React.FormEvent) => {
+  const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !subtitle || !coverImage || !videoId) {
       alert('Please fill out all required project fields.');
@@ -130,8 +139,8 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
 
     if (editingId) {
       // Edit existing project
-      updatedList = projects.map(p => p.id === editingId ? {
-        ...p,
+      const updatedItem = {
+        id: editingId,
         title,
         subtitle,
         category,
@@ -139,12 +148,25 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
         views: views || '1.0M',
         coverImage,
         videoId
-      } : p);
-      setSuccessMsg('Project updated successfully!');
+      };
+      updatedList = projects.map(p => p.id === editingId ? updatedItem : p);
+      await saveProjectToFirestore({
+        id: editingId,
+        title,
+        category,
+        videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+        videoType: 'youtube',
+        thumbnail: coverImage,
+        views: views || '1.0M',
+        likes: '95%',
+        description: subtitle
+      });
+      setSuccessMsg('Project updated successfully in Firestore!');
     } else {
       // Create new project
+      const newId = Date.now().toString();
       const newProj: Project = {
-        id: Date.now().toString(),
+        id: newId,
         title,
         subtitle,
         category,
@@ -154,7 +176,18 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
         videoId
       };
       updatedList = [newProj, ...projects];
-      setSuccessMsg('🎉 New work uploaded and published live to website!');
+      await saveProjectToFirestore({
+        id: newId,
+        title,
+        category,
+        videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+        videoType: 'youtube',
+        thumbnail: coverImage,
+        views: views || '1.0M',
+        likes: '98%',
+        description: subtitle
+      });
+      setSuccessMsg('🎉 New work uploaded and saved live to Firestore DB!');
     }
 
     onProjectsChange(updatedList);
@@ -176,9 +209,10 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
     setActiveTab('upload');
   };
 
-  const deleteProject = (id: string) => {
+  const deleteProject = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this project work from the portfolio?')) {
       const updated = projects.filter(p => p.id !== id);
+      await deleteProjectFromFirestore(id);
       onProjectsChange(updated);
     }
   };

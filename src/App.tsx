@@ -21,12 +21,20 @@ import {
   Database,
   ArrowUpRight,
   ShieldCheck,
-  PlusCircle
+  PlusCircle,
+  User,
+  LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import HtmlExporter from './components/HtmlExporter';
 import LeadsDashboard from './components/LeadsDashboard';
 import AdminPanel, { Project } from './components/AdminPanel';
+import GoogleAuthModal, { UserSession } from './components/GoogleAuthModal';
+import { 
+  saveLeadToFirestore, 
+  fetchProjectsFromFirestore, 
+  fetchLeadsFromFirestore, 
+  saveProjectToFirestore 
+} from './lib/firebase';
 
 // Default Sample Portfolio Projects
 const DEFAULT_PROJECTS: Project[] = [
@@ -127,6 +135,34 @@ export default function App() {
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [leadsCount, setLeadsCount] = useState(0);
 
+  // User Authentication State (Google Sign-In)
+  const [currentUser, setCurrentUser] = useState<UserSession | null>(() => {
+    const saved = localStorage.getItem('all_red_user_session');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return null;
+  });
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(() => {
+    return !localStorage.getItem('all_red_user_session');
+  });
+
+  const handleLoginSuccess = (user: UserSession) => {
+    setCurrentUser(user);
+    localStorage.setItem('all_red_user_session', JSON.stringify(user));
+    setIsAuthModalOpen(false);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('all_red_user_session');
+    setIsAuthModalOpen(true);
+  };
+
   const handleProjectsChange = (updatedProjects: Project[]) => {
     setProjects(updatedProjects);
     localStorage.setItem('arc_projects_data', JSON.stringify(updatedProjects));
@@ -142,7 +178,17 @@ export default function App() {
   });
 
   // Load active leads count initially and on update
-  const updateLeadsCount = () => {
+  const updateLeadsCount = async () => {
+    try {
+      const fsLeads = await fetchLeadsFromFirestore();
+      if (fsLeads && fsLeads.length > 0) {
+        setLeadsCount(fsLeads.length);
+        return;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
     const stored = localStorage.getItem('arc_inquiries');
     if (stored) {
       try {
@@ -157,6 +203,25 @@ export default function App() {
   useEffect(() => {
     updateLeadsCount();
     window.addEventListener('arcInquirySubmitted', updateLeadsCount);
+
+    // Initial load of portfolio projects from Firestore DB
+    async function loadFirestoreProjects() {
+      const fsProjects = await fetchProjectsFromFirestore();
+      if (fsProjects && fsProjects.length > 0) {
+        const mapped: Project[] = fsProjects.map(p => ({
+          id: p.id,
+          title: p.title,
+          subtitle: p.description || '',
+          category: (p.category as any) || 'reels',
+          categoryLabel: p.category ? p.category.toUpperCase() : 'PORTFOLIO',
+          views: p.views || '1.0M',
+          coverImage: p.thumbnail,
+          videoId: p.videoUrl.includes('v=') ? p.videoUrl.split('v=')[1] : p.videoUrl
+        }));
+        setProjects(mapped);
+      }
+    }
+    loadFirestoreProjects();
     
     const handleScroll = () => {
       if (window.scrollY > 50) {
@@ -203,11 +268,22 @@ export default function App() {
     ? projects 
     : projects.filter(p => p.category === activeTab);
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.projectType || !formData.budget || !formData.message) return;
 
-    // Save lead locally
+    // Save lead to Firestore DB
+    await saveLeadToFirestore({
+      name: formData.name,
+      email: formData.email,
+      phone: '',
+      budget: formData.budget,
+      message: formData.message,
+      status: 'New',
+      createdAt: new Date().toISOString()
+    });
+
+    // Save lead locally as fallback
     const stored = localStorage.getItem('arc_inquiries') || '[]';
     try {
       const parsed = JSON.parse(stored);
@@ -281,16 +357,35 @@ export default function App() {
             <a href="#contact" className="text-white/50 hover:text-white transition-colors">GET IN TOUCH</a>
           </nav>
 
-          {/* Desktop CTA & Admin Portal Trigger */}
+          {/* Desktop CTA & Auth status */}
           <div className="hidden md:flex items-center gap-3">
-            <button
-              onClick={() => setIsAdminOpen(true)}
-              className="px-4 py-2.5 rounded-full bg-white/5 border border-white/10 hover:border-brand-red/40 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Admin Login & Portfolio Work Uploader"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-brand-red" />
-              <span>Admin Portal</span>
-            </button>
+            {currentUser ? (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-gray-200">
+                <div className="w-5 h-5 rounded-full bg-brand-red text-white flex items-center justify-center font-bold text-[10px] overflow-hidden flex-shrink-0">
+                  {currentUser.avatarUrl ? (
+                    <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
+                  ) : (
+                    currentUser.name.charAt(0)
+                  )}
+                </div>
+                <span className="font-mono text-[11px] text-gray-300 max-w-[130px] truncate">{currentUser.email}</span>
+                <button
+                  onClick={handleLogout}
+                  className="text-gray-400 hover:text-brand-red transition-colors ml-1 p-0.5 cursor-pointer"
+                  title="Sign Out / Change Google Account"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <User className="w-3.5 h-3.5 text-brand-red" />
+                <span>Google Sign In</span>
+              </button>
+            )}
 
             <a 
               href="#contact" 
@@ -347,14 +442,7 @@ export default function App() {
                   <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="text-gray-300 hover:text-brand-red transition-colors">Contact</a>
                 </nav>
 
-                <div className="mt-auto space-y-3">
-                  <button 
-                    onClick={() => { setMobileMenuOpen(false); setIsAdminOpen(true); }}
-                    className="w-full py-3 rounded-xl bg-white/5 border border-white/10 hover:border-brand-red text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2"
-                  >
-                    <ShieldCheck className="w-4 h-4 text-brand-red" />
-                    <span>Admin Portal</span>
-                  </button>
+                <div className="mt-auto">
                   <a 
                     href="#contact" 
                     onClick={() => setMobileMenuOpen(false)}
@@ -384,22 +472,21 @@ export default function App() {
           </div>
         </div>
 
-        <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
+        <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
           {/* Tagline Badge */}
-          <div className="inline-flex items-center gap-2 px-4.5 py-2.5 border border-brand-red/30 bg-brand-red/5 rounded text-[10px] font-bold text-brand-red uppercase tracking-[0.2em] mb-8">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-red animate-ping"></span>
-            <span className="font-mono tracking-widest text-brand-red">HIGH-TICKET VIDEO PRODUCTION AGENCY</span>
+          <div className="inline-flex items-center gap-2 px-4 py-2 border border-brand-red/20 bg-brand-red/5 rounded-full text-[10px] font-mono font-semibold text-brand-red uppercase tracking-[0.2em] mb-6 backdrop-blur-md">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-red"></span>
+            <span>HIGH-TICKET VIDEO PRODUCTION AGENCY</span>
           </div>
 
           {/* Headline */}
-          <h1 className="font-display font-extrabold text-4xl sm:text-6xl md:text-7xl lg:text-8xl tracking-tighter text-white uppercase leading-[0.9] mb-8">
-            WE DON'T JUST <br />
-            <span className="text-white">SHOOT & EDIT.</span> <br />
-            WE CREATE <span className="text-brand-red text-glow">MASTERPIECES.</span>
+          <h1 className="font-display font-bold text-3xl sm:text-4xl md:text-5xl lg:text-6xl tracking-tight text-white uppercase leading-[1.15] mb-6">
+            WE DON'T JUST <span className="text-gray-300">SHOOT & EDIT.</span> <br />
+            WE CREATE <span className="text-brand-red font-extrabold border-b-2 border-brand-red/40 pb-0.5">MASTERPIECES.</span>
           </h1>
 
           {/* Subheadline */}
-          <p className="max-w-xl mx-auto text-white/40 text-sm md:text-base leading-relaxed mb-12">
+          <p className="max-w-lg mx-auto text-gray-400 text-xs sm:text-sm md:text-base leading-relaxed mb-10 font-sans">
             Helping premium brands and creators dominate the market through cinematic storytelling and high-conversion video systems.
           </p>
 
@@ -461,8 +548,8 @@ export default function App() {
           {/* Section Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
             <div>
-              <span className="text-xs font-mono tracking-widest text-brand-red uppercase font-semibold">OUR SHOWREEL</span>
-              <h2 className="font-display font-extrabold text-4xl sm:text-5xl md:text-6xl uppercase tracking-tighter text-white mt-2">
+              <span className="text-xs font-mono tracking-[0.2em] text-brand-red uppercase font-semibold">OUR SHOWREEL</span>
+              <h2 className="font-display font-bold text-2xl sm:text-3xl md:text-4xl uppercase tracking-tight text-white mt-2 leading-snug">
                 THE WORKS THAT <br />COMMAND ATTENTION
               </h2>
             </div>
@@ -918,26 +1005,24 @@ export default function App() {
           </p>
 
           <div className="flex items-center gap-3">
-            {/* Admin Panel button */}
+            {/* Subtle Admin Portal link */}
             <button
               onClick={() => setIsAdminOpen(true)}
-              className="px-3.5 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-brand-red/30 text-gray-400 hover:text-white text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-              title="Upload work content & manage portfolio"
+              className="text-[11px] text-gray-600 hover:text-gray-400 font-mono flex items-center gap-1 transition-colors cursor-pointer py-1 px-2 rounded hover:bg-white/5"
+              title="Admin Content Manager"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-brand-red" />
-              <span>Admin Portal</span>
+              <span>🔒 Admin</span>
             </button>
 
-            {/* Secret Leads CRM access button for testing/viewing leads */}
+            {/* Subtle CRM Leads link */}
             <button
               onClick={() => setIsLeadsOpen(true)}
-              className="px-3.5 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-brand-red/30 text-gray-400 hover:text-white text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-              title="Review lead list submitted through contact form"
+              className="text-[11px] text-gray-600 hover:text-gray-400 font-mono flex items-center gap-1 transition-colors cursor-pointer py-1 px-2 rounded hover:bg-white/5"
+              title="Leads Database"
             >
-              <Database className="w-3.5 h-3.5 text-brand-red" />
-              <span>CRM Portal</span>
+              <span>📊 Leads</span>
               {leadsCount > 0 && (
-                <span className="w-2.5 h-2.5 rounded-full bg-brand-red text-white flex items-center justify-center text-[8px] p-1 font-bold animate-pulse">{leadsCount}</span>
+                <span className="w-2 h-2 rounded-full bg-brand-red inline-block"></span>
               )}
             </button>
           </div>
@@ -993,8 +1078,12 @@ export default function App() {
         <LeadsDashboard onClose={() => setIsLeadsOpen(false)} />
       )}
 
-      {/* Single HTML Code Export Panel */}
-      <HtmlExporter />
+      {/* First-time Google Auth Modal */}
+      <GoogleAuthModal
+        isOpen={isAuthModalOpen}
+        onLoginSuccess={handleLoginSuccess}
+        userEmailDefault="all.red.gaming.2003@gmail.com"
+      />
 
     </div>
   );

@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Portfolio projects are readable by anyone, writable by all during development/admin session
+    match /projects/{projectId} {
+      allow read, write: if true;
+    }
+
+    // Client user records created on login
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Contact form lead submissions
+    match /leads/{leadId} {
+      allow read, write: if true;
+    }
+  }
+}

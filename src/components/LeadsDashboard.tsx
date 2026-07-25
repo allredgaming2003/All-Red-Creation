@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Check, Trash2, Calendar, DollarSign, Briefcase, Sparkles, X, User } from 'lucide-react';
+import { fetchLeadsFromFirestore } from '../lib/firebase';
 
 interface Inquiry {
   name: string;
@@ -14,14 +15,27 @@ export default function LeadsDashboard({ onClose }: { onClose: () => void }) {
   const [leads, setLeads] = useState<Inquiry[]>([]);
 
   useEffect(() => {
-    // Load leads from localStorage
-    const loadLeads = () => {
-      const stored = localStorage.getItem('arc_inquiries');
-      if (stored) {
-        try {
-          setLeads(JSON.parse(stored));
-        } catch (e) {
-          console.error(e);
+    // Load leads from Firestore DB with localStorage fallback
+    const loadLeads = async () => {
+      const fsLeads = await fetchLeadsFromFirestore();
+      if (fsLeads && fsLeads.length > 0) {
+        const mapped: Inquiry[] = fsLeads.map(l => ({
+          name: l.name,
+          email: l.email,
+          projectType: l.status || 'General',
+          budget: l.budget,
+          message: l.message,
+          timestamp: l.createdAt
+        }));
+        setLeads(mapped);
+      } else {
+        const stored = localStorage.getItem('arc_inquiries');
+        if (stored) {
+          try {
+            setLeads(JSON.parse(stored));
+          } catch (e) {
+            console.error(e);
+          }
         }
       }
     };

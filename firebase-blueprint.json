@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "projects": {
+      "title": "Projects",
+      "description": "Video production portfolio showcase items",
+      "fields": {
+        "title": { "type": "string", "description": "Project title" },
+        "category": { "type": "string", "description": "Project category" },
+        "videoUrl": { "type": "string", "description": "Video stream/embed URL" },
+        "videoType": { "type": "string", "description": "youtube or direct mp4" },
+        "thumbnail": { "type": "string", "description": "Thumbnail image URL" },
+        "views": { "type": "string", "description": "View count label" },
+        "likes": { "type": "string", "description": "Likes count label" },
+        "description": { "type": "string", "description": "Detailed project description" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      }
+    },
+    "users": {
+      "title": "Users",
+      "description": "Clients logging into the website via Gmail",
+      "fields": {
+        "name": { "type": "string", "description": "User display name" },
+        "email": { "type": "string", "description": "Gmail address" },
+        "avatarUrl": { "type": "string", "description": "Avatar image URL" },
+        "provider": { "type": "string", "description": "Authentication provider (e.g. google)" },
+        "lastLogin": { "type": "string", "description": "Timestamp of last login" }
+      }
+    },
+    "leads": {
+      "title": "Leads",
+      "description": "Contact form submissions and lead management",
+      "fields": {
+        "name": { "type": "string", "description": "Client full name" },
+        "email": { "type": "string", "description": "Client email" },
+        "phone": { "type": "string", "description": "Client phone number" },
+        "budget": { "type": "string", "description": "Estimated project budget" },
+        "message": { "type": "string", "description": "Project requirements message" },
+        "status": { "type": "string", "description": "Lead status (New, Contacted, Won, Closed)" },
+        "createdAt": { "type": "string", "description": "Submission timestamp" }
+      }
+    }
+  }
+}
