@@ -12,6 +12,11 @@ import {
   onSnapshot,
   serverTimestamp 
 } from 'firebase/firestore';
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup 
+} from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
@@ -22,6 +27,38 @@ const configObj = firebaseConfig as unknown as { firestoreDatabaseId?: string };
 export const db = configObj.firestoreDatabaseId 
   ? getFirestore(app, configObj.firestoreDatabaseId)
   : getFirestore(app);
+
+// Initialize Auth
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account' // Forces Google to display account chooser with all device accounts
+});
+
+// Real Google Auth Function
+export async function loginWithGoogleReal() {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = result.user;
+    return {
+      success: true,
+      user: {
+        name: user.displayName || user.email?.split('@')[0] || 'Google User',
+        email: user.email || '',
+        avatarUrl: user.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.email || 'user')}&backgroundColor=dc2626&textColor=ffffff`,
+        provider: 'google' as const,
+        loggedInAt: new Date().toISOString()
+      }
+    };
+  } catch (error: any) {
+    console.error('Google Auth Error:', error);
+    return {
+      success: false,
+      error: error?.message || 'Google Auth failed',
+      code: error?.code
+    };
+  }
+}
 
 // Types
 export interface FirestoreProject {

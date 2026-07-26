@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, ArrowRight, Lock, User, Eye, EyeOff, CheckCircle2, Globe, Shield } from 'lucide-react';
-import { saveUserToFirestore } from '../lib/firebase';
+import { saveUserToFirestore, loginWithGoogleReal } from '../lib/firebase';
 
 export interface UserSession {
   name: string;
@@ -31,7 +31,7 @@ export default function GoogleAuthModal({
   const [rememberMe, setRememberMe] = useState<boolean>(true);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   
-  // State for Google OAuth Popup simulation
+  // State for Google OAuth Chooser Fallback
   const [showGoogleAccountChooser, setShowGoogleAccountChooser] = useState<boolean>(false);
   const [customGoogleEmail, setCustomGoogleEmail] = useState<string>('');
   const [showCustomEmailInput, setShowCustomEmailInput] = useState<boolean>(false);
@@ -41,7 +41,39 @@ export default function GoogleAuthModal({
 
   if (!isOpen) return null;
 
-  // Finalize Login and notify parent
+  // Real Google Sign In Click Handler
+  const handleGoogleClick = async () => {
+    setErrorMessage('');
+    setIsLoggingIn(true);
+    
+    // Trigger real Google Popup Auth
+    const res = await loginWithGoogleReal();
+    if (res.success && res.user) {
+      setSuccessEmail(res.user.email);
+      // Save to Firestore
+      saveUserToFirestore({
+        name: res.user.name,
+        email: res.user.email,
+        avatarUrl: res.user.avatarUrl,
+        provider: 'google'
+      }).catch((err) => console.warn('Firestore sync notice:', err));
+
+      setTimeout(() => {
+        setIsLoggingIn(false);
+        onLoginSuccess(res.user);
+      }, 500);
+    } else {
+      setIsLoggingIn(false);
+      console.warn('Real Google Auth Notice:', res.code, res.error);
+      if (res.code === 'auth/popup-closed-by-user') {
+        return; // User intentionally closed popup
+      }
+      // If popup blocked or operation not enabled yet, show fallback selector modal
+      setShowGoogleAccountChooser(true);
+    }
+  };
+
+  // Finalize Manual or Fallback Login and notify parent
   const completeLogin = (emailToUse: string, nameToUse?: string, provider: 'google' | 'email' = 'google') => {
     setIsLoggingIn(true);
     setSuccessEmail(emailToUse);
@@ -152,7 +184,7 @@ export default function GoogleAuthModal({
               <div className="space-y-4 mb-5">
                 <button
                   type="button"
-                  onClick={() => setShowGoogleAccountChooser(true)}
+                  onClick={handleGoogleClick}
                   className="w-full py-3 px-4 rounded-xl bg-white hover:bg-gray-100 text-gray-900 font-semibold text-xs sm:text-sm flex items-center justify-center gap-3 transition-all duration-200 cursor-pointer shadow-lg hover:shadow-white/10 active:scale-[0.99] group"
                 >
                   {/* Google SVG Icon */}
