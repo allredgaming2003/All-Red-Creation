@@ -15,7 +15,12 @@ import {
 import { 
   getAuth, 
   GoogleAuthProvider, 
-  signInWithPopup 
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -51,10 +56,76 @@ export async function loginWithGoogleReal() {
       }
     };
   } catch (error: any) {
-    console.error('Google Auth Error:', error);
+    if (error?.code === 'auth/popup-blocked' || error?.code === 'auth/cancelled-popup-request') {
+      try {
+        await signInWithRedirect(auth, googleProvider);
+        return { success: false, isRedirecting: true };
+      } catch (redirectErr: any) {
+        return {
+          success: false,
+          error: redirectErr?.message || 'Google Auth Redirect failed',
+          code: redirectErr?.code
+        };
+      }
+    }
+
+    if (error?.code !== 'auth/popup-closed-by-user') {
+      console.error('Google Auth Error:', error?.code, error?.message);
+    }
+
     return {
       success: false,
-      error: error?.message || 'Google Auth failed',
+      error: error?.code === 'auth/popup-closed-by-user' 
+        ? 'Sign-in popup was closed.' 
+        : (error?.message || 'Google Auth failed'),
+      code: error?.code
+    };
+  }
+}
+
+export { getRedirectResult };
+
+// Real Email Auth Function (Registers in Firebase Authentication)
+export async function authenticateWithEmailReal(email: string, pass: string, isSignUp: boolean, name?: string) {
+  try {
+    let userCredential;
+    if (isSignUp) {
+      userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+      if (name && userCredential.user) {
+        await updateProfile(userCredential.user, { displayName: name });
+      }
+    } else {
+      try {
+        userCredential = await signInWithEmailAndPassword(auth, email, pass);
+      } catch (signInErr: any) {
+        if (signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/invalid-credential') {
+          // Auto create account if trying to log in with a new email
+          userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+          if (name && userCredential.user) {
+            await updateProfile(userCredential.user, { displayName: name });
+          }
+        } else {
+          throw signInErr;
+        }
+      }
+    }
+
+    const firebaseUser = userCredential.user;
+    return {
+      success: true,
+      user: {
+        name: firebaseUser.displayName || name || email.split('@')[0],
+        email: firebaseUser.email || email,
+        avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(email)}&backgroundColor=dc2626&textColor=ffffff`,
+        provider: 'email' as const,
+        loggedInAt: new Date().toISOString()
+      }
+    };
+  } catch (error: any) {
+    console.warn('Firebase Email Auth notice:', error);
+    return {
+      success: false,
+      error: error?.message || 'Authentication error',
       code: error?.code
     };
   }

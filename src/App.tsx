@@ -23,17 +23,22 @@ import {
   ShieldCheck,
   PlusCircle,
   User,
-  LogOut
+  LogOut,
+  Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LeadsDashboard from './components/LeadsDashboard';
 import AdminPanel, { Project } from './components/AdminPanel';
 import GoogleAuthModal, { UserSession } from './components/GoogleAuthModal';
+import AccountSettingsModal from './components/AccountSettingsModal';
 import { 
   saveLeadToFirestore, 
   fetchProjectsFromFirestore, 
   fetchLeadsFromFirestore, 
-  saveProjectToFirestore 
+  saveProjectToFirestore,
+  saveUserToFirestore,
+  auth,
+  getRedirectResult
 } from './lib/firebase';
 
 // Default Sample Portfolio Projects
@@ -150,12 +155,41 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(() => {
     return !localStorage.getItem('all_red_user_session');
   });
+  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState<boolean>(false);
 
   const handleLoginSuccess = (user: UserSession) => {
     setCurrentUser(user);
     localStorage.setItem('all_red_user_session', JSON.stringify(user));
     setIsAuthModalOpen(false);
   };
+
+  // Listen for Google Auth Redirect result on page load
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result && result.user) {
+          const u = result.user;
+          const userSession: UserSession = {
+            name: u.displayName || u.email?.split('@')[0] || 'Google User',
+            email: u.email || '',
+            avatarUrl: u.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.email || 'user')}&backgroundColor=dc2626&textColor=ffffff`,
+            provider: 'google',
+            loggedInAt: new Date().toISOString()
+          };
+          saveUserToFirestore({
+            name: userSession.name,
+            email: userSession.email,
+            avatarUrl: userSession.avatarUrl,
+            provider: 'google'
+          }).catch((err) => console.warn('Firestore sync notice:', err));
+
+          handleLoginSuccess(userSession);
+        }
+      })
+      .catch((err) => {
+        console.warn('Redirect login result notice:', err);
+      });
+  }, []);
 
   const handleLogout = () => {
     setCurrentUser(null);
@@ -360,7 +394,11 @@ export default function App() {
           {/* Desktop CTA & Auth Status */}
           <div className="hidden md:flex items-center gap-3">
             {currentUser ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-gray-200">
+              <button
+                onClick={() => setIsAccountSettingsOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-200 transition-all cursor-pointer group"
+                title="Account Settings"
+              >
                 <div className="w-5 h-5 rounded-full bg-brand-red text-white flex items-center justify-center font-bold text-[10px] overflow-hidden flex-shrink-0">
                   {currentUser.avatarUrl ? (
                     <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
@@ -369,14 +407,8 @@ export default function App() {
                   )}
                 </div>
                 <span className="font-mono text-[11px] text-gray-300 max-w-[130px] truncate">{currentUser.email}</span>
-                <button
-                  onClick={handleLogout}
-                  className="text-gray-400 hover:text-brand-red transition-colors ml-1 p-0.5 cursor-pointer"
-                  title="Sign Out / Change Account"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
-              </div>
+                <Settings className="w-3.5 h-3.5 text-gray-400 group-hover:text-brand-red transition-colors ml-0.5" />
+              </button>
             ) : (
               <button
                 onClick={() => setIsAuthModalOpen(true)}
@@ -423,19 +455,52 @@ export default function App() {
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed inset-y-0 right-0 w-72 bg-bg-dark border-l border-white/5 z-50 p-6 flex flex-col gap-8 shadow-2xl md:hidden"
+                className="fixed inset-y-0 right-0 w-72 bg-bg-dark border-l border-white/5 z-50 p-6 flex flex-col gap-6 shadow-2xl md:hidden"
               >
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center pb-2 border-b border-white/5">
                   <span className="font-display font-bold text-sm tracking-widest text-brand-red">MENU</span>
-                  <button 
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-white/5 transition-all cursor-pointer"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setIsAccountSettingsOpen(true);
+                      }}
+                      className="p-1.5 rounded-lg text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-all cursor-pointer flex items-center gap-1.5"
+                      title="Account & Settings"
+                    >
+                      <Settings className="w-4 h-4 text-brand-red" />
+                      <span className="text-[10px] font-mono uppercase text-gray-300">Settings</span>
+                    </button>
+
+                    <button 
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-white/5 transition-all cursor-pointer"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Account Card snippet inside drawer */}
+                {currentUser && (
+                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-brand-red text-white flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-brand-red/40 shadow-sm">
+                        {currentUser.avatarUrl ? (
+                          <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
+                        ) : (
+                          currentUser.name.charAt(0)
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-white truncate">{currentUser.name}</p>
+                        <p className="text-[10px] text-gray-400 font-mono truncate">{currentUser.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
-                <nav className="flex flex-col gap-6 font-display font-bold text-lg">
+                <nav className="flex flex-col gap-5 font-display font-bold text-lg">
                   <a href="#portfolio" onClick={() => setMobileMenuOpen(false)} className="text-gray-300 hover:text-brand-red transition-colors">Portfolio</a>
                   <a href="#services" onClick={() => setMobileMenuOpen(false)} className="text-gray-300 hover:text-brand-red transition-colors">Services</a>
                   <a href="#testimonials" onClick={() => setMobileMenuOpen(false)} className="text-gray-300 hover:text-brand-red transition-colors">Testimonials</a>
@@ -1083,6 +1148,14 @@ export default function App() {
         isOpen={isAuthModalOpen}
         onLoginSuccess={handleLoginSuccess}
         userEmailDefault="all.red.gaming.2003@gmail.com"
+      />
+
+      {/* Account Settings & Profile Modal */}
+      <AccountSettingsModal
+        isOpen={isAccountSettingsOpen}
+        onClose={() => setIsAccountSettingsOpen(false)}
+        user={currentUser}
+        onLogout={handleLogout}
       />
 
     </div>
