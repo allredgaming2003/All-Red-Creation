@@ -16,9 +16,11 @@ import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
+const configObj = firebaseConfig as unknown as { firestoreDatabaseId?: string };
+
 // Initialize Firestore with specific database ID if provided in config, or default
-export const db = firebaseConfig.firestoreDatabaseId 
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+export const db = configObj.firestoreDatabaseId 
+  ? getFirestore(app, configObj.firestoreDatabaseId)
   : getFirestore(app);
 
 // Types

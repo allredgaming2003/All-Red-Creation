@@ -357,7 +357,7 @@ export default function App() {
             <a href="#contact" className="text-white/50 hover:text-white transition-colors">GET IN TOUCH</a>
           </nav>
 
-          {/* Desktop CTA & Auth status */}
+          {/* Desktop CTA & Auth Status */}
           <div className="hidden md:flex items-center gap-3">
             {currentUser ? (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-gray-200">
@@ -372,7 +372,7 @@ export default function App() {
                 <button
                   onClick={handleLogout}
                   className="text-gray-400 hover:text-brand-red transition-colors ml-1 p-0.5 cursor-pointer"
-                  title="Sign Out / Change Google Account"
+                  title="Sign Out / Change Account"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -383,7 +383,7 @@ export default function App() {
                 className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
               >
                 <User className="w-3.5 h-3.5 text-brand-red" />
-                <span>Google Sign In</span>
+                <span>Sign In</span>
               </button>
             )}
 
@@ -1078,7 +1078,7 @@ export default function App() {
         <LeadsDashboard onClose={() => setIsLeadsOpen(false)} />
       )}
 
-      {/* First-time Google Auth Modal */}
+      {/* Mandatory Auth Modal */}
       <GoogleAuthModal
         isOpen={isAuthModalOpen}
         onLoginSuccess={handleLoginSuccess}
