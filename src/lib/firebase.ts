@@ -62,7 +62,9 @@ export async function saveUserToFirestore(user: { name: string; email: string; a
   try {
     const userDocId = user.email.replace(/[^a-zA-Z0-9]/g, '_');
     const userRef = doc(db, 'users', userDocId);
-    await setDoc(userRef, {
+    
+    // 3 second timeout guard
+    const savePromise = setDoc(userRef, {
       name: user.name,
       email: user.email,
       avatarUrl: user.avatarUrl || '',
@@ -70,9 +72,15 @@ export async function saveUserToFirestore(user: { name: string; email: string; a
       lastLogin: new Date().toISOString(),
       updatedAt: serverTimestamp()
     }, { merge: true });
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Firestore operation timed out')), 3500)
+    );
+
+    await Promise.race([savePromise, timeoutPromise]);
     console.log('User logged in & saved to Firestore:', user.email);
   } catch (err) {
-    console.error('Error saving user to Firestore:', err);
+    console.warn('Notice saving user to Firestore (non-blocking):', err);
   }
 }
 
