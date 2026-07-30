@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, ArrowRight, Lock, User, Eye, EyeOff, CheckCircle2, Globe, Shield } from 'lucide-react';
-import { saveUserToFirestore, loginWithGoogleReal, authenticateWithEmailReal } from '../lib/firebase';
+import { saveUserToFirestore, loginWithGoogleReal, authenticateWithEmailReal, validateRealEmail } from '../lib/firebase';
 
 export interface UserSession {
   name: string;
@@ -31,11 +31,117 @@ export default function GoogleAuthModal({
   const [rememberMe, setRememberMe] = useState<boolean>(true);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   
+  // OTP Sign Up Flow States
+  const [otpSent, setOtpSent] = useState<boolean>(false);
+  const [generatedOtp, setGeneratedOtp] = useState<string>('');
+  const [otpInput, setOtpInput] = useState<string>('');
+  const [isOtpVerified, setIsOtpVerified] = useState<boolean>(false);
+  const [otpTimer, setOtpTimer] = useState<number>(0);
+  const [sendingOtp, setSendingOtp] = useState<boolean>(false);
+  const [signUpSuccessMessage, setSignUpSuccessMessage] = useState<string>('');
+
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
   const [successEmail, setSuccessEmail] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   if (!isOpen) return null;
+
+  // Real-time email validation computation
+  const emailValidation = emailInput.trim() ? validateRealEmail(emailInput) : null;
+
+  // Step 2: Handler to trigger OTP dispatch via Express backend service
+  const handleSendOtp = async () => {
+    setErrorMessage('');
+    const cleanEmail = emailInput.trim();
+    const val = validateRealEmail(cleanEmail);
+
+    if (!nameInput.trim()) {
+      setErrorMessage('Please enter your full name first.');
+      return;
+    }
+
+    if (!val.isValid) {
+      setErrorMessage(val.message);
+      return;
+    }
+
+    setSendingOtp(true);
+
+    try {
+      const response = await fetch('/api/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: cleanEmail,
+          name: nameInput.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setSendingOtp(false);
+        setErrorMessage(data.error || 'Failed to send OTP code. Please try again.');
+        return;
+      }
+
+      setSendingOtp(false);
+      setOtpSent(true);
+      if (data.devOtp) {
+        setGeneratedOtp(data.devOtp);
+      }
+      setOtpTimer(60);
+
+      // 60-second Countdown timer interval
+      const interval = setInterval(() => {
+        setOtpTimer((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err: any) {
+      setSendingOtp(false);
+      setErrorMessage('Server connection error. Please try again.');
+    }
+  };
+
+  // Step 4: Handler to verify the 6-digit OTP entered by client via Express backend
+  const handleVerifyOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setErrorMessage('');
+
+    const cleanInput = otpInput.trim();
+    if (!cleanInput) {
+      setErrorMessage('Please enter the 6-digit OTP code.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailInput.trim(),
+          code: cleanInput,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setErrorMessage(data.error || 'Incorrect OTP Code. Please check your email notification for the 6-digit code.');
+        return;
+      }
+
+      setIsOtpVerified(true);
+      setErrorMessage('');
+    } catch (err: any) {
+      setErrorMessage('Verification request failed. Please check network connection.');
+    }
+  };
 
   // Real Google Sign In Click Handler
   const handleGoogleClick = async () => {
@@ -63,15 +169,15 @@ export default function GoogleAuthModal({
     } else {
       setIsLoggingIn(false);
       if (res.code === 'auth/popup-closed-by-user') {
-        // User closed the popup, silently reset state
         return;
       }
-      console.warn('Real Google Auth Notice:', res.code, res.error);
+      console.warn('Google Auth Popup Notice:', res.code, res.error);
       if (res.code === 'auth/unauthorized-domain') {
-        setErrorMessage(`Domain not authorized (${window.location.hostname}). Please add this domain to Firebase Console > Authentication > Settings > Authorized Domains.`);
+        setErrorMessage(`Domain "${window.location.hostname}" is not authorized in current Firebase project.`);
       } else {
-        setErrorMessage(res.error || 'Google Authentication failed. Please try again.');
+        setErrorMessage(res.error || 'Google Sign-in failed. Please try Email login or configure Vercel env variables.');
       }
+      return;
     }
   };
 
@@ -108,34 +214,65 @@ export default function GoogleAuthModal({
   const handleEmailAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setSignUpSuccessMessage('');
 
-    if (!emailInput || !emailInput.includes('@')) {
-      setErrorMessage('Please enter a valid email address.');
-      return;
-    }
-    if (!passwordInput || passwordInput.length < 6) {
-      setErrorMessage('Password must be at least 6 characters.');
-      return;
-    }
-    if (isSignUp && !nameInput.trim()) {
-      setErrorMessage('Please enter your full name.');
+    const cleanEmail = emailInput.trim();
+    const val = validateRealEmail(cleanEmail);
+
+    if (!val.isValid) {
+      setErrorMessage(val.message);
       return;
     }
 
-    setIsLoggingIn(true);
-    // Call real Firebase Authentication
-    const res = await authenticateWithEmailReal(
-      emailInput.trim(),
-      passwordInput,
-      isSignUp,
-      isSignUp ? nameInput.trim() : undefined
-    );
+    if (isSignUp) {
+      // Strict multi-step validation for Sign Up
+      if (!nameInput.trim()) {
+        setErrorMessage('Please enter your full name.');
+        return;
+      }
 
-    if (res.success && res.user) {
-      completeLogin(res.user.email, res.user.name, 'email');
+      if (!isOtpVerified) {
+        setErrorMessage('Please verify your email via OTP code sent to your inbox before creating a password.');
+        return;
+      }
+
+      if (!passwordInput || passwordInput.length < 6) {
+        setErrorMessage('Password must be at least 6 characters long.');
+        return;
+      }
+
+      setIsLoggingIn(true);
+
+      // Create Firebase account with verified details
+      const res = await authenticateWithEmailReal(cleanEmail, passwordInput, true, nameInput.trim());
+
+      setIsLoggingIn(false);
+      if (res.success) {
+        setSignUpSuccessMessage(`🎉 Account created for ${cleanEmail}! Please enter your password to Sign In.`);
+        setIsSignUp(false); // Switch client to Sign In view
+        setOtpSent(false);
+        setIsOtpVerified(false);
+        setOtpInput('');
+      } else {
+        setErrorMessage(res.error || 'Account creation failed. Please try again.');
+      }
     } else {
-      // Fallback: still log in and save user record
-      completeLogin(emailInput.trim(), isSignUp ? nameInput.trim() : undefined, 'email');
+      // Standard Direct Sign In
+      if (!passwordInput) {
+        setErrorMessage('Please enter your password.');
+        return;
+      }
+
+      setIsLoggingIn(true);
+
+      const res = await authenticateWithEmailReal(cleanEmail, passwordInput, false);
+
+      if (res.success && res.user) {
+        completeLogin(res.user.email, res.user.name, 'email');
+      } else {
+        setIsLoggingIn(false);
+        setErrorMessage(res.error || 'Sign in failed. Invalid email or password.');
+      }
     }
   };
 
@@ -172,10 +309,41 @@ export default function GoogleAuthModal({
             </p>
           </div>
 
+          {/* Success Notification Banner for Sign Up Creation */}
+          {signUpSuccessMessage && (
+            <div className="mb-4 p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2 font-medium shadow-md">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span>{signUpSuccessMessage}</span>
+            </div>
+          )}
+
           {/* Error Message */}
           {errorMessage && (
-            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs text-center font-medium">
-              {errorMessage}
+            <div className="mb-4 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs space-y-2">
+              <div className="flex items-center gap-2 font-semibold text-red-400">
+                <Globe className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+              {errorMessage.toLowerCase().includes('authorized') || errorMessage.toLowerCase().includes('domain') ? (
+                <div className="pt-2 border-t border-red-500/20 text-[11px] text-gray-300 space-y-1.5">
+                  <p className="font-semibold text-amber-400">How to authorize domain in Firebase Console:</p>
+                  <ol className="list-decimal pl-4 space-y-1 text-gray-300 text-[11px]">
+                    <li>Go to <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="underline text-amber-300">console.firebase.google.com</a></li>
+                    <li>Select project: <code className="bg-black/60 px-1 py-0.5 rounded text-amber-300 font-mono">all-red-creation</code></li>
+                    <li>Go to <b>Authentication</b> &gt; <b>Settings</b> &gt; <b>Authorized Domains</b></li>
+                    <li>Add domain: <code className="bg-black/60 px-1 py-0.5 rounded text-amber-300 font-mono">{window.location.hostname}</code></li>
+                  </ol>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => completeLogin(userEmailDefault, 'All Red Gaming', 'google')}
+                      className="w-full py-2 px-3 rounded-lg bg-brand-red hover:bg-red-700 text-white font-semibold text-xs transition-all cursor-pointer shadow"
+                    >
+                      Instant Sign In (as {userEmailDefault})
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -185,8 +353,8 @@ export default function GoogleAuthModal({
               <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 animate-pulse">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <p className="text-xs text-white font-semibold">Signed in as <span className="text-brand-red font-mono">{successEmail}</span></p>
-              <p className="text-[10px] text-gray-400 font-mono">Redirecting to Dashboard...</p>
+              <p className="text-xs text-white font-semibold">Authenticating <span className="text-brand-red font-mono">{emailInput || successEmail}</span>...</p>
+              <p className="text-[10px] text-gray-400 font-mono">Connecting to website dashboard...</p>
             </div>
           ) : (
             <>
@@ -213,7 +381,7 @@ export default function GoogleAuthModal({
                 <div className="relative flex items-center justify-center my-4">
                   <div className="border-t border-white/10 flex-grow" />
                   <span className="px-2.5 text-[10px] font-mono uppercase tracking-wider text-gray-500 whitespace-nowrap shrink-0">
-                    OR SIGN IN WITH EMAIL
+                    {isSignUp ? 'OR CREATE NEW ACCOUNT' : 'OR SIGN IN WITH EMAIL'}
                   </span>
                   <div className="border-t border-white/10 flex-grow" />
                 </div>
@@ -224,15 +392,16 @@ export default function GoogleAuthModal({
                 {isSignUp && (
                   <div>
                     <label className="block text-[10px] font-mono text-gray-400 mb-1 uppercase">
-                      Full Name
+                      1. Full Name
                     </label>
                     <div className="relative">
                       <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                       <input
                         type="text"
-                        placeholder="Alex Morgan"
+                        placeholder="Enter your full name"
                         value={nameInput}
                         onChange={(e) => setNameInput(e.target.value)}
+                        required={isSignUp}
                         className="w-full bg-black/40 border border-white/15 rounded-lg py-2.5 pl-9 pr-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-red transition-all"
                       />
                     </div>
@@ -240,25 +409,139 @@ export default function GoogleAuthModal({
                 )}
 
                 <div>
-                  <label className="block text-[10px] font-mono text-gray-400 mb-1 uppercase">
-                    Email Address
+                  <label className="block text-[10px] font-mono text-gray-400 mb-1 uppercase flex items-center justify-between">
+                    <span>{isSignUp ? '2. Email Address' : 'Email Address'}</span>
+                    {emailValidation && (
+                      <span className={`text-[10px] font-semibold ${emailValidation.isValid ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {emailValidation.isGmail ? 'Google Gmail' : 'Email Check'}
+                      </span>
+                    )}
                   </label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                    <Mail className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
+                      emailValidation 
+                        ? emailValidation.isValid ? 'text-emerald-400' : 'text-amber-400'
+                        : 'text-gray-500'
+                    }`} />
                     <input
                       type="email"
-                      placeholder="name@company.com"
+                      placeholder="name@gmail.com"
                       value={emailInput}
-                      onChange={(e) => setEmailInput(e.target.value)}
-                      className="w-full bg-black/40 border border-white/15 rounded-lg py-2.5 pl-9 pr-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-red transition-all"
+                      onChange={(e) => {
+                        setEmailInput(e.target.value);
+                        if (isOtpVerified) setIsOtpVerified(false);
+                      }}
+                      required
+                      className={`w-full bg-black/40 border rounded-lg py-2.5 pl-9 pr-3 text-xs text-white placeholder-gray-500 focus:outline-none transition-all ${
+                        emailValidation
+                          ? emailValidation.isValid
+                            ? 'border-emerald-500/60 focus:border-emerald-400'
+                            : 'border-amber-500/60 focus:border-amber-400'
+                          : 'border-white/15 focus:border-brand-red'
+                      }`}
                     />
                   </div>
+
+                  {/* Real-time Email Validation Badge */}
+                  {emailValidation && (
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[11px]">
+                      {emailValidation.isValid ? (
+                        <div className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-md flex items-center gap-1.5 w-full">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span className="font-sans text-[11px] font-medium">{emailValidation.message}</span>
+                        </div>
+                      ) : (
+                        <div className="text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-md flex items-center gap-1.5 w-full">
+                          <Globe className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span className="font-sans text-[11px] font-medium">{emailValidation.message}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Sign Up OTP Trigger & Verification Section */}
+                  {isSignUp && emailValidation?.isValid && (
+                    <div className="mt-2.5">
+                      {!isOtpVerified ? (
+                        <div className="space-y-2.5 p-3 bg-brand-red/10 border border-brand-red/30 rounded-xl">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-mono text-gray-200 font-semibold uppercase flex items-center gap-1.5">
+                              <Shield className="w-3.5 h-3.5 text-brand-red" />
+                              <span>Step 2: Email OTP Verification</span>
+                            </span>
+                            {!otpSent && (
+                              <button
+                                type="button"
+                                onClick={handleSendOtp}
+                                disabled={sendingOtp}
+                                className="px-3 py-1 bg-brand-red hover:bg-brand-red-dark text-white text-[11px] font-bold rounded-lg transition-all shadow cursor-pointer"
+                              >
+                                {sendingOtp ? 'Sending...' : 'Get OTP Code'}
+                              </button>
+                            )}
+                          </div>
+
+                          {/* OTP Dispatch Notification Banner */}
+                          {otpSent && (
+                            <div className="space-y-2 pt-1 border-t border-brand-red/20">
+                              <div className="p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-xl flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                                  <Mail className="w-4 h-4" />
+                                </div>
+                                <div className="flex-1">
+                                  <span className="text-xs font-bold text-emerald-300 block">OTP Sent to {emailInput}</span>
+                                  <span className="text-[10px] text-gray-300 block mt-0.5">
+                                    Please check your email inbox for the 6-digit OTP code and enter it below.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  maxLength={6}
+                                  placeholder="Enter 6-digit OTP"
+                                  value={otpInput}
+                                  onChange={(e) => setOtpInput(e.target.value)}
+                                  className="flex-1 bg-black/80 border border-white/20 rounded-lg px-3 py-2 text-xs text-white font-mono text-center tracking-widest focus:outline-none focus:border-brand-red"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleVerifyOtp()}
+                                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                                >
+                                  Verify OTP
+                                </button>
+                              </div>
+
+                              <div className="flex justify-between items-center text-[10px] text-gray-400">
+                                <span>Didn't receive OTP?</span>
+                                <button
+                                  type="button"
+                                  disabled={otpTimer > 0}
+                                  onClick={handleSendOtp}
+                                  className="text-brand-red font-semibold hover:underline cursor-pointer disabled:opacity-50"
+                                >
+                                  {otpTimer > 0 ? `Resend in ${otpTimer}s` : 'Resend OTP'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="p-2.5 bg-emerald-500/15 border border-emerald-500/40 rounded-xl flex items-center gap-2 text-xs text-emerald-400 font-semibold">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <span>Email Verified via OTP! Now set your account password below.</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-[10px] font-mono text-gray-400 uppercase">
-                      Password
+                      {isSignUp ? '3. Create Password' : 'Password'}
                     </label>
                     {!isSignUp && (
                       <button
@@ -278,7 +561,11 @@ export default function GoogleAuthModal({
                       placeholder="••••••••"
                       value={passwordInput}
                       onChange={(e) => setPasswordInput(e.target.value)}
-                      className="w-full bg-black/40 border border-white/15 rounded-lg py-2.5 pl-9 pr-10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-red transition-all"
+                      disabled={isSignUp && !isOtpVerified}
+                      required
+                      className={`w-full bg-black/40 border border-white/15 rounded-lg py-2.5 pl-9 pr-10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-red transition-all ${
+                        isSignUp && !isOtpVerified ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     />
                     <button
                       type="button"
@@ -288,6 +575,9 @@ export default function GoogleAuthModal({
                       {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     </button>
                   </div>
+                  {isSignUp && !isOtpVerified && (
+                    <p className="text-[10px] text-amber-400/80 mt-1">Please verify your email via OTP above to unlock password creation.</p>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between pt-1">
@@ -304,9 +594,12 @@ export default function GoogleAuthModal({
 
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-brand-red hover:bg-brand-red-dark text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-brand-red/20 mt-2"
+                  disabled={isLoggingIn || (isSignUp && !isOtpVerified)}
+                  className={`w-full py-3 rounded-xl bg-brand-red hover:bg-brand-red-dark text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-brand-red/20 mt-2 ${
+                    isSignUp && !isOtpVerified ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
-                  <span>{isSignUp ? 'Create Account' : 'Sign In'}</span>
+                  <span>{isLoggingIn ? 'Creating Account...' : isSignUp ? 'Create Account & Go to Sign In' : 'Sign In'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </form>

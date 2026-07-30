@@ -48,6 +48,22 @@ const PRESET_IMAGES = [
   { label: 'Creator Podcast Set', url: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=800&q=80' },
 ];
 
+export function extractYouTubeId(urlOrId: string): string {
+  if (!urlOrId) return '';
+  const trimmed = urlOrId.trim();
+  // Match YouTube URLs: watch?v=, embed/, shorts/, youtu.be/
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = trimmed.match(regExp);
+  if (match && match[2] && match[2].length === 11) {
+    return match[2];
+  }
+  // Check if user pasted standard 11-character video ID
+  if (trimmed.length === 11 && !trimmed.includes('/')) {
+    return trimmed;
+  }
+  return trimmed;
+}
+
 export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange }: AdminPanelProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState('');
@@ -130,64 +146,71 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
 
   const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !subtitle || !coverImage || !videoId) {
-      alert('Please fill out all required project fields.');
+    const cleanVideoId = extractYouTubeId(videoId);
+    if (!cleanVideoId) {
+      alert('Please enter or paste a YouTube Video Link or Video ID.');
       return;
     }
+
+    const finalTitle = title.trim() || 'New YouTube Work';
+    const finalSubtitle = subtitle.trim() || 'Video Edit & Post Production';
+    const finalCategory = category || 'reels';
+    const finalCoverImage = `https://img.youtube.com/vi/${cleanVideoId}/hqdefault.jpg`;
+    const finalViews = views.trim() || '10K';
 
     let updatedList: Project[] = [];
 
     if (editingId) {
       // Edit existing project
-      const updatedItem = {
+      const updatedItem: Project = {
         id: editingId,
-        title,
-        subtitle,
-        category,
-        categoryLabel: getCategoryLabel(category),
-        views: views || '1.0M',
-        coverImage,
-        videoId
+        title: finalTitle,
+        subtitle: finalSubtitle,
+        category: finalCategory,
+        categoryLabel: getCategoryLabel(finalCategory),
+        views: finalViews,
+        coverImage: finalCoverImage,
+        videoId: cleanVideoId
       };
       updatedList = projects.map(p => p.id === editingId ? updatedItem : p);
       await saveProjectToFirestore({
         id: editingId,
-        title,
-        category,
-        videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+        title: finalTitle,
+        category: finalCategory,
+        videoUrl: `https://www.youtube.com/watch?v=${cleanVideoId}`,
         videoType: 'youtube',
-        thumbnail: coverImage,
-        views: views || '1.0M',
-        likes: '95%',
-        description: subtitle
+        thumbnail: finalCoverImage,
+        views: finalViews,
+        likes: '98%',
+        description: finalSubtitle
       });
-      setSuccessMsg('Project updated successfully in Firestore!');
+      setSuccessMsg('Project video updated successfully!');
     } else {
       // Create new project
       const newId = Date.now().toString();
       const newProj: Project = {
         id: newId,
-        title,
-        subtitle,
-        category,
-        categoryLabel: getCategoryLabel(category),
-        views: views || '1.0M',
-        coverImage,
-        videoId
+        title: finalTitle,
+        subtitle: finalSubtitle,
+        category: finalCategory,
+        categoryLabel: getCategoryLabel(finalCategory),
+        views: finalViews,
+        coverImage: finalCoverImage,
+        videoId: cleanVideoId
       };
       updatedList = [newProj, ...projects];
       await saveProjectToFirestore({
         id: newId,
-        title,
-        category,
-        videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+        title: finalTitle,
+        category: finalCategory,
+        videoUrl: `https://www.youtube.com/watch?v=${cleanVideoId}`,
         videoType: 'youtube',
-        thumbnail: coverImage,
-        views: views || '1.0M',
+        thumbnail: finalCoverImage,
+        views: finalViews,
         likes: '98%',
-        description: subtitle
+        description: finalSubtitle
       });
-      setSuccessMsg('🎉 New work uploaded and saved live to Firestore DB!');
+      setSuccessMsg('🎉 YouTube video added live to website portfolio!');
     }
 
     onProjectsChange(updatedList);
@@ -210,17 +233,20 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
   };
 
   const deleteProject = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this project work from the portfolio?')) {
+    if (window.confirm('Are you sure you want to delete this video work from the portfolio?')) {
       const updated = projects.filter(p => p.id !== id);
       await deleteProjectFromFirestore(id);
       onProjectsChange(updated);
     }
   };
 
-  const resetToDefaultPortfolio = () => {
-    if (window.confirm('Reset portfolio back to default sample items?')) {
+  const clearAllProjects = async () => {
+    if (window.confirm('Delete ALL portfolio videos? You can add your real videos anytime.')) {
+      for (const p of projects) {
+        await deleteProjectFromFirestore(p.id);
+      }
+      onProjectsChange([]);
       localStorage.removeItem('arc_projects_data');
-      window.location.reload();
     }
   };
 
@@ -416,25 +442,45 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
 
                   <form onSubmit={handleSaveProject} className="space-y-5">
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Primary Field: YouTube Link / ID */}
+                    <div>
+                      <label className="text-xs font-mono tracking-widest text-brand-red uppercase font-semibold block mb-1 flex items-center gap-1.5">
+                        <Video className="w-4 h-4" />
+                        <span>Paste YouTube Video Link or ID *</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={videoId}
+                          onChange={(e) => setVideoId(e.target.value)}
+                          placeholder="e.g. https://www.youtube.com/watch?v=9XqfA-4y8Sg or https://youtu.be/..."
+                          required
+                          className="w-full px-4 py-3.5 rounded-xl bg-bg-darker border-2 border-brand-red/40 focus:border-brand-red focus:outline-none text-white text-sm font-mono placeholder:text-gray-600 shadow-[0_0_15px_rgba(255,0,43,0.1)]"
+                        />
+                        <span className="absolute right-3.5 top-3.5 text-[10px] bg-brand-red/20 border border-brand-red/40 text-brand-red font-mono font-bold px-2 py-0.5 rounded-md">YouTube Link</span>
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-1.5">Simply paste any YouTube video link or Shorts URL. Thumbnail and video stream automatically!</p>
+                    </div>
+
+                    {/* Optional Fields: Title & Category */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                       <div>
-                        <label className="text-[10px] font-mono tracking-widest text-gray-400 uppercase block mb-1">Project Title *</label>
+                        <label className="text-[10px] font-mono tracking-widest text-gray-400 uppercase block mb-1">Project Title (Optional)</label>
                         <input
                           type="text"
                           value={title}
                           onChange={(e) => setTitle(e.target.value)}
-                          placeholder="e.g. Red Bull Nitro Series"
-                          required
-                          className="w-full px-4 py-3 rounded-xl bg-bg-darker border border-white/10 focus:border-brand-red focus:outline-none text-white text-sm"
+                          placeholder="e.g. Red Bull Nitro Series (Default: New YouTube Work)"
+                          className="w-full px-4 py-2.5 rounded-xl bg-bg-darker border border-white/10 focus:border-brand-red focus:outline-none text-white text-sm"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[10px] font-mono tracking-widest text-gray-400 uppercase block mb-1">Category *</label>
+                        <label className="text-[10px] font-mono tracking-widest text-gray-400 uppercase block mb-1">Category (Optional)</label>
                         <select
                           value={category}
                           onChange={(e: any) => setCategory(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl bg-bg-darker border border-white/10 focus:border-brand-red focus:outline-none text-white text-sm"
+                          className="w-full px-4 py-2.5 rounded-xl bg-bg-darker border border-white/10 focus:border-brand-red focus:outline-none text-white text-sm"
                         >
                           <option value="reels" className="bg-bg-dark text-white">Reels & Shorts</option>
                           <option value="youtube" className="bg-bg-dark text-white">YouTube Episode</option>
@@ -443,93 +489,18 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-[10px] font-mono tracking-widest text-gray-400 uppercase block mb-1">Subtitle / Description *</label>
-                      <input
-                        type="text"
-                        value={subtitle}
-                        onChange={(e) => setSubtitle(e.target.value)}
-                        placeholder="e.g. 8K Drone Cinematography & Sound Grading"
-                        required
-                        className="w-full px-4 py-3 rounded-xl bg-bg-darker border border-white/10 focus:border-brand-red focus:outline-none text-white text-sm"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[10px] font-mono tracking-widest text-gray-400 uppercase block mb-1">YouTube Video ID *</label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={videoId}
-                            onChange={(e) => setVideoId(e.target.value)}
-                            placeholder="e.g. 9XqfA-4y8Sg"
-                            required
-                            className="w-full px-4 py-3 rounded-xl bg-bg-darker border border-white/10 focus:border-brand-red focus:outline-none text-white text-sm font-mono"
-                          />
-                          <span className="absolute right-3 top-3 text-[10px] text-gray-500 font-mono">ID or Embed</span>
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-1">Found in YouTube URL after `v=` e.g. youtube.com/watch?v=<strong>9XqfA-4y8Sg</strong></p>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-mono tracking-widest text-gray-400 uppercase block mb-1">Views / Metric (Optional)</label>
-                        <input
-                          type="text"
-                          value={views}
-                          onChange={(e) => setViews(e.target.value)}
-                          placeholder="e.g. 2.4M or 850K"
-                          className="w-full px-4 py-3 rounded-xl bg-bg-darker border border-white/10 focus:border-brand-red focus:outline-none text-white text-sm"
+                    {/* Auto Thumbnail Preview */}
+                    {extractYouTubeId(videoId) && (
+                      <div className="p-3.5 bg-bg-darker border border-brand-red/30 rounded-2xl flex items-center gap-4 animate-fadeIn">
+                        <img 
+                          src={`https://img.youtube.com/vi/${extractYouTubeId(videoId)}/hqdefault.jpg`} 
+                          alt="Thumbnail Preview" 
+                          className="w-28 h-16 object-cover rounded-xl border border-white/10 shadow" 
                         />
-                      </div>
-                    </div>
-
-                    {/* Cover Image Input + Presets */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-mono tracking-widest text-gray-400 uppercase block">Cover / Thumbnail Image URL *</label>
-                      <input
-                        type="url"
-                        value={coverImage}
-                        onChange={(e) => setCoverImage(e.target.value)}
-                        placeholder="https://images.unsplash.com/photo-..."
-                        required
-                        className="w-full px-4 py-3 rounded-xl bg-bg-darker border border-white/10 focus:border-brand-red focus:outline-none text-white text-sm"
-                      />
-
-                      {/* Quick Image Presets Selection */}
-                      <div className="pt-2">
-                        <span className="text-[10px] text-gray-500 font-mono uppercase block mb-2">Or select from High-Res Preset Cover Photos:</span>
-                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                          {PRESET_IMAGES.map((img, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => setCoverImage(img.url)}
-                              className={`relative rounded-lg overflow-hidden border aspect-video transition-all cursor-pointer group ${
-                                coverImage === img.url ? 'border-brand-red ring-2 ring-brand-red/50 scale-105' : 'border-white/10 hover:border-white/30'
-                              }`}
-                              title={img.label}
-                            >
-                              <img src={img.url} alt={img.label} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                              {coverImage === img.url && (
-                                <div className="absolute inset-0 bg-brand-red/30 flex items-center justify-center">
-                                  <Check className="w-4 h-4 text-white" />
-                                </div>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Image Preview */}
-                    {coverImage && (
-                      <div className="p-3 bg-bg-darker border border-white/10 rounded-2xl flex items-center gap-4">
-                        <img src={coverImage} alt="Preview" className="w-24 h-16 object-cover rounded-lg border border-white/10" />
-                        <div className="text-xs">
-                          <span className="text-gray-400 font-mono text-[10px] uppercase block">Thumbnail Preview</span>
-                          <span className="text-white font-bold">{title || 'Untitled Project'}</span>
-                          <span className="text-brand-red font-mono text-[10px] block">{getCategoryLabel(category)} • {views || '1.0M'} Views</span>
+                        <div className="text-xs space-y-1">
+                          <span className="text-brand-red font-mono text-[10px] uppercase font-bold tracking-wider block">✓ Auto Detected Thumbnail</span>
+                          <span className="text-white font-bold block">{title || 'New YouTube Work'}</span>
+                          <span className="text-gray-400 font-mono text-[10px] block">{getCategoryLabel(category)} • Ready to Add</span>
                         </div>
                       </div>
                     )}
@@ -540,7 +511,7 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
                         className="flex-1 py-4 bg-brand-red hover:bg-brand-red-dark text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(255,0,0,0.4)] flex items-center justify-center gap-2 cursor-pointer"
                       >
                         <Upload className="w-4 h-4" />
-                        <span>{editingId ? 'Update & Save Changes' : 'Publish Work Live to Portfolio'}</span>
+                        <span>{editingId ? 'Update Video' : 'Add Video to Website'}</span>
                       </button>
                     </div>
 
@@ -557,11 +528,11 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
                       <p className="text-xs text-gray-400">Click edit or delete to customize live projects displayed on the homepage.</p>
                     </div>
                     <button
-                      onClick={resetToDefaultPortfolio}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-white border border-white/10 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                      onClick={clearAllProjects}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:text-red-300 border border-red-500/20 bg-red-500/10 rounded-lg hover:bg-red-500/20 transition-colors cursor-pointer"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Reset Defaults</span>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Clear All Videos</span>
                     </button>
                   </div>
 

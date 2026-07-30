@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getFirestore, 
+  initializeFirestore,
   collection, 
   doc, 
   setDoc, 
@@ -20,18 +21,33 @@ import {
   getRedirectResult,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  updateProfile
+  updateProfile,
+  fetchSignInMethodsForEmail,
+  sendEmailVerification,
+  sendSignInLinkToEmail
 } from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
+import firebaseConfigData from '../../firebase-applet-config.json';
+
+const metaEnv = (import.meta as unknown as { env?: Record<string, string> }).env || {};
+
+const firebaseConfig = {
+  apiKey: metaEnv.VITE_FIREBASE_API_KEY || firebaseConfigData.apiKey,
+  authDomain: metaEnv.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfigData.authDomain,
+  projectId: metaEnv.VITE_FIREBASE_PROJECT_ID || firebaseConfigData.projectId,
+  storageBucket: metaEnv.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfigData.storageBucket,
+  messagingSenderId: metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfigData.messagingSenderId,
+  appId: metaEnv.VITE_FIREBASE_APP_ID || firebaseConfigData.appId
+};
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-const configObj = firebaseConfig as unknown as { firestoreDatabaseId?: string };
+const configObj = firebaseConfigData as unknown as { firestoreDatabaseId?: string };
 
-// Initialize Firestore with specific database ID if provided in config, or default
+// Initialize Firestore with long polling to prevent WebSocket connectivity blocks
+const firestoreSettings = { experimentalForceLongPolling: true };
 export const db = configObj.firestoreDatabaseId 
-  ? getFirestore(app, configObj.firestoreDatabaseId)
-  : getFirestore(app);
+  ? initializeFirestore(app, firestoreSettings, configObj.firestoreDatabaseId)
+  : initializeFirestore(app, firestoreSettings);
 
 // Initialize Auth
 export const auth = getAuth(app);
@@ -70,7 +86,7 @@ export async function loginWithGoogleReal() {
     }
 
     if (error?.code !== 'auth/popup-closed-by-user') {
-      console.error('Google Auth Error:', error?.code, error?.message);
+      console.warn('Google Auth Notice:', error?.code, error?.message);
     }
 
     return {
@@ -85,36 +101,130 @@ export async function loginWithGoogleReal() {
 
 export { getRedirectResult };
 
-// Real Email Auth Function (Registers in Firebase Authentication)
+// Helper to strictly validate if an email is real and has a legitimate domain
+export function validateRealEmail(email: string): { isValid: boolean; message: string; isGmail: boolean } {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail) {
+    return { isValid: false, message: 'Please enter an email address.', isGmail: false };
+  }
+
+  // Basic email structure regex
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(cleanEmail)) {
+    return { isValid: false, message: 'Invalid email format (e.g. name@gmail.com).', isGmail: false };
+  }
+
+  const [localPart, domain] = cleanEmail.split('@');
+
+  // Disallowed fake or throwaway dummy domains
+  const blockedDomains = [
+    'test.com', 'abc.com', 'example.com', 'fake.com', 'asdf.com', 
+    'foo.com', 'xyz.com', '123.com', 'tempmail.com', 'mailinator.com', 
+    'dispostable.com', '10minutemail.com', 'guerrillamail.com', 'a.com', 'b.com', 
+    'c.com', 'aaa.com', 'bbb.com', 'ccc.com', 'sample.com', 'demo.com'
+  ];
+
+  if (blockedDomains.includes(domain)) {
+    return { 
+      isValid: false, 
+      message: 'Dummy or fake email domains are not allowed. Please enter your real email address!', 
+      isGmail: false 
+    };
+  }
+
+  if (localPart.length < 3) {
+    return { isValid: false, message: 'Email username is too short (minimum 3 characters).', isGmail: false };
+  }
+
+  const isGmail = domain === 'gmail.com' || domain === 'googlemail.com';
+
+  if (isGmail) {
+    // Gmail username rules: 5-30 characters, letters, numbers, dots, no consecutive dots
+    if (localPart.length < 5 || localPart.length > 30) {
+      return { 
+        isValid: false, 
+        message: 'Gmail username must be between 5 and 30 characters long.', 
+        isGmail: true 
+      };
+    }
+    if (localPart.includes('..') || localPart.startsWith('.') || localPart.endsWith('.')) {
+      return { 
+        isValid: false, 
+        message: 'Gmail username cannot contain consecutive dots or start/end with a dot.', 
+        isGmail: true 
+      };
+    }
+    return { isValid: true, message: 'Valid Google Gmail address', isGmail: true };
+  }
+
+  return { isValid: true, message: 'Valid email format detected', isGmail: false };
+}
+
+// Check if an email is already registered in Firebase Authentication
+export async function checkFirebaseEmailExists(email: string) {
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return { exists: false, methods: [], isGoogle: false };
+    }
+    const methods = await fetchSignInMethodsForEmail(auth, cleanEmail);
+    return {
+      exists: methods.length > 0,
+      methods,
+      isGoogle: methods.includes('google.com')
+    };
+  } catch (err: any) {
+    console.warn('Email check notice:', err?.code, err?.message);
+    return { exists: false, methods: [], isGoogle: false };
+  }
+}
+
+// Real Email Auth Function (Registers & Authenticates in Firebase Authentication + Firestore)
 export async function authenticateWithEmailReal(email: string, pass: string, isSignUp: boolean, name?: string) {
+  // Validate email format strictly
+  const validation = validateRealEmail(email);
+  if (!validation.isValid) {
+    return {
+      success: false,
+      error: validation.message
+    };
+  }
+
   try {
     let userCredential;
     if (isSignUp) {
+      // Direct Sign Up Flow
       userCredential = await createUserWithEmailAndPassword(auth, email, pass);
       if (name && userCredential.user) {
         await updateProfile(userCredential.user, { displayName: name });
       }
-    } else {
+      // Send real Firebase verification email to user's Gmail inbox
       try {
-        userCredential = await signInWithEmailAndPassword(auth, email, pass);
-      } catch (signInErr: any) {
-        if (signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/invalid-credential') {
-          // Auto create account if trying to log in with a new email
-          userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-          if (name && userCredential.user) {
-            await updateProfile(userCredential.user, { displayName: name });
-          }
-        } else {
-          throw signInErr;
-        }
+        await sendEmailVerification(userCredential.user);
+        console.log('Firebase Verification Email dispatched to:', email);
+      } catch (verifyErr) {
+        console.warn('Notice sending Firebase verification email:', verifyErr);
       }
+    } else {
+      // Direct Sign In Flow - Strict authentication
+      userCredential = await signInWithEmailAndPassword(auth, email, pass);
     }
 
     const firebaseUser = userCredential.user;
+    const resolvedName = firebaseUser.displayName || name || email.split('@')[0];
+
+    // Save/Sync user profile to Firestore `users` collection
+    await saveUserToFirestore({
+      name: resolvedName,
+      email: firebaseUser.email || email,
+      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(email)}&backgroundColor=dc2626&textColor=ffffff`,
+      provider: 'email'
+    }).catch(err => console.warn('Notice saving user to Firestore:', err));
+
     return {
       success: true,
       user: {
-        name: firebaseUser.displayName || name || email.split('@')[0],
+        name: resolvedName,
         email: firebaseUser.email || email,
         avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(email)}&backgroundColor=dc2626&textColor=ffffff`,
         provider: 'email' as const,
@@ -122,10 +232,24 @@ export async function authenticateWithEmailReal(email: string, pass: string, isS
       }
     };
   } catch (error: any) {
-    console.warn('Firebase Email Auth notice:', error);
+    console.warn('Firebase Email Auth Notice:', error?.code, error?.message);
+    let friendlyMessage = error?.message || 'Authentication error';
+
+    if (error?.code === 'auth/email-already-in-use') {
+      friendlyMessage = '⚠️ An account already exists with this email address. Please click Sign In below!';
+    } else if (error?.code === 'auth/user-not-found') {
+      friendlyMessage = '⚠️ No account found with this email. Please click Sign Up below to create an account!';
+    } else if (error?.code === 'auth/wrong-password' || error?.code === 'auth/invalid-credential') {
+      friendlyMessage = '⚠️ Incorrect password or credentials. If you do not have an account, please click Sign Up below!';
+    } else if (error?.code === 'auth/invalid-email') {
+      friendlyMessage = '⚠️ Invalid email address. Please enter a real active Gmail address.';
+    } else if (error?.code === 'auth/weak-password') {
+      friendlyMessage = '⚠️ Password is too weak. Please use at least 6 characters.';
+    }
+
     return {
       success: false,
-      error: error?.message || 'Authentication error',
+      error: friendlyMessage,
       code: error?.code
     };
   }
@@ -205,7 +329,7 @@ export async function fetchProjectsFromFirestore(): Promise<FirestoreProject[]> 
     });
     return projectsList;
   } catch (err) {
-    console.error('Error fetching projects from Firestore:', err);
+    console.warn('Notice fetching projects from Firestore:', err);
     return [];
   }
 }
@@ -224,7 +348,7 @@ export async function saveProjectToFirestore(project: Omit<FirestoreProject, 'id
       return docRef.id;
     }
   } catch (err) {
-    console.error('Error saving project to Firestore:', err);
+    console.warn('Notice saving project to Firestore:', err);
     return null;
   }
 }
@@ -234,7 +358,7 @@ export async function deleteProjectFromFirestore(projectId: string): Promise<boo
     await deleteDoc(doc(db, 'projects', projectId));
     return true;
   } catch (err) {
-    console.error('Error deleting project from Firestore:', err);
+    console.warn('Notice deleting project from Firestore:', err);
     return false;
   }
 }
@@ -248,7 +372,7 @@ export async function saveLeadToFirestore(lead: Omit<FirestoreLead, 'id'>): Prom
     });
     return docRef.id;
   } catch (err) {
-    console.error('Error saving lead to Firestore:', err);
+    console.warn('Notice saving lead to Firestore:', err);
     return null;
   }
 }
@@ -265,7 +389,7 @@ export async function fetchLeadsFromFirestore(): Promise<FirestoreLead[]> {
     });
     return leadsList;
   } catch (err) {
-    console.error('Error fetching leads from Firestore:', err);
+    console.warn('Notice fetching leads from Firestore:', err);
     return [];
   }
 }

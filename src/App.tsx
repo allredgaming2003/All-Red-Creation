@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LeadsDashboard from './components/LeadsDashboard';
-import AdminPanel, { Project } from './components/AdminPanel';
+import AdminPanel, { Project, extractYouTubeId } from './components/AdminPanel';
 import GoogleAuthModal, { UserSession } from './components/GoogleAuthModal';
 import AccountSettingsModal from './components/AccountSettingsModal';
 import { 
@@ -41,69 +41,8 @@ import {
   getRedirectResult
 } from './lib/firebase';
 
-// Default Sample Portfolio Projects
-const DEFAULT_PROJECTS: Project[] = [
-  {
-    id: '1',
-    title: 'Aero Athletics',
-    subtitle: 'Cinematic Commercial Shoot & Visual Edit',
-    category: 'commercials',
-    categoryLabel: 'COMMERCIALS',
-    views: '2.4M',
-    coverImage: 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=800&q=80',
-    videoId: '9XqfA-4y8Sg'
-  },
-  {
-    id: '2',
-    title: 'Neon Street Beats',
-    subtitle: 'VFX Hyper-Editing & Fast Transitions',
-    category: 'reels',
-    categoryLabel: 'REELS & SHORTS',
-    views: '1.2M',
-    coverImage: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=800&q=80',
-    videoId: 'z6zD6999Lh4'
-  },
-  {
-    id: '3',
-    title: 'The Creator Journey',
-    subtitle: 'Full YouTube Episode Production & Strategy',
-    category: 'youtube',
-    categoryLabel: 'YOUTUBE',
-    views: '850K',
-    coverImage: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=800&q=80',
-    videoId: 'ScMzIvxBSi4'
-  },
-  {
-    id: '4',
-    title: 'NextGen Vehicle Launch',
-    subtitle: 'High-End Product Design Promo Shoot & Grade',
-    category: 'commercials',
-    categoryLabel: 'COMMERCIALS',
-    views: '1.8M',
-    coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
-    videoId: '3z0U5Y5D3r8'
-  },
-  {
-    id: '5',
-    title: 'Limitless Movement',
-    subtitle: 'Fast-Paced Sound Design & Speed Ramping',
-    category: 'reels',
-    categoryLabel: 'REELS & SHORTS',
-    views: '3.1M',
-    coverImage: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80',
-    videoId: 'K8T0Xv4S4gE'
-  },
-  {
-    id: '6',
-    title: 'The Wild Explorer',
-    subtitle: 'Cinematic Documentary Grading & Soundscapes',
-    category: 'youtube',
-    categoryLabel: 'YOUTUBE',
-    views: '1.1M',
-    coverImage: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&w=800&q=80',
-    videoId: 'F-9S_Gf9t78'
-  }
-];
+// Default Portfolio Projects (Starts empty so owner can add real YouTube videos via Admin Panel)
+const DEFAULT_PROJECTS: Project[] = [];
 
 // Custom Type for Testimonials
 interface Testimonial {
@@ -242,16 +181,19 @@ export default function App() {
     async function loadFirestoreProjects() {
       const fsProjects = await fetchProjectsFromFirestore();
       if (fsProjects && fsProjects.length > 0) {
-        const mapped: Project[] = fsProjects.map(p => ({
-          id: p.id,
-          title: p.title,
-          subtitle: p.description || '',
-          category: (p.category as any) || 'reels',
-          categoryLabel: p.category ? p.category.toUpperCase() : 'PORTFOLIO',
-          views: p.views || '1.0M',
-          coverImage: p.thumbnail,
-          videoId: p.videoUrl.includes('v=') ? p.videoUrl.split('v=')[1] : p.videoUrl
-        }));
+        const mapped: Project[] = fsProjects.map(p => {
+          const cleanId = extractYouTubeId(p.videoUrl);
+          return {
+            id: p.id,
+            title: p.title,
+            subtitle: p.description || '',
+            category: (p.category as any) || 'reels',
+            categoryLabel: p.category ? p.category.toUpperCase() : 'PORTFOLIO',
+            views: p.views || '10K',
+            coverImage: p.thumbnail || `https://img.youtube.com/vi/${cleanId}/hqdefault.jpg`,
+            videoId: cleanId
+          };
+        });
         setProjects(mapped);
       }
     }
@@ -651,46 +593,67 @@ export default function App() {
             </button>
           </div>
 
-          {/* Portfolio Grid */}
-          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <AnimatePresence mode="popLayout">
-              {filteredProjects.map((project) => (
-                <motion.div
-                  key={project.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.92 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.92 }}
-                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                  onClick={() => setSelectedVideo(project.videoId)}
-                  className="group relative overflow-hidden rounded-2xl glass-card aspect-video cursor-pointer"
-                >
-                  <img 
-                    src={project.coverImage} 
-                    alt={project.title} 
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90"></div>
-                  
-                  {/* Hover Glow Accent */}
-                  <div className="absolute inset-0 bg-brand-red/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                    <span className="w-16 h-16 rounded-full bg-brand-red flex items-center justify-center shadow-[0_0_20px_rgba(255,0,43,0.6)] transform scale-90 group-hover:scale-100 transition-transform duration-300 border border-white/10">
-                      <Play className="w-5 h-5 fill-white text-white ml-0.5" />
-                    </span>
-                  </div>
-
-                  <div className="absolute bottom-6 left-6 right-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-mono tracking-widest text-brand-red uppercase bg-brand-red/10 px-2.5 py-1 rounded-full border border-brand-red/20">{project.categoryLabel}</span>
-                      <span className="text-xs font-mono text-gray-300 flex items-center gap-1.5"><Eye className="w-3.5 h-3.5 text-brand-red" />{project.views} Views</span>
+          {/* Portfolio Grid / Empty State */}
+          {filteredProjects.length === 0 ? (
+            <div className="glass-card rounded-3xl p-10 md:p-14 text-center max-w-xl mx-auto space-y-5 border border-white/10 my-8">
+              <div className="w-16 h-16 rounded-2xl bg-brand-red/10 border border-brand-red/30 flex items-center justify-center text-brand-red mx-auto shadow-[0_0_20px_rgba(255,0,0,0.2)]">
+                <Video className="w-8 h-8" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="font-display font-extrabold text-xl sm:text-2xl text-white uppercase tracking-tight">No Real Showcase Videos Added Yet</h3>
+                <p className="text-xs text-gray-400 font-sans leading-relaxed max-w-md mx-auto">
+                  Sample demo projects have been removed. You can now add your real YouTube video links from your Admin Panel. Videos stream via YouTube with zero storage cost!
+                </p>
+              </div>
+              <button
+                onClick={() => setIsAdminOpen(true)}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-brand-red hover:bg-brand-red-dark text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(255,0,0,0.3)] cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Open Admin Dashboard to Add Videos</span>
+              </button>
+            </div>
+          ) : (
+            <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <AnimatePresence mode="popLayout">
+                {filteredProjects.map((project) => (
+                  <motion.div
+                    key={project.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.92 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.92 }}
+                    transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                    onClick={() => setSelectedVideo(project.videoId)}
+                    className="group relative overflow-hidden rounded-2xl glass-card aspect-video cursor-pointer"
+                  >
+                    <img 
+                      src={project.coverImage} 
+                      alt={project.title} 
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90"></div>
+                    
+                    {/* Hover Glow Accent */}
+                    <div className="absolute inset-0 bg-brand-red/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                      <span className="w-16 h-16 rounded-full bg-brand-red flex items-center justify-center shadow-[0_0_20px_rgba(255,0,43,0.6)] transform scale-90 group-hover:scale-100 transition-transform duration-300 border border-white/10">
+                        <Play className="w-5 h-5 fill-white text-white ml-0.5" />
+                      </span>
                     </div>
-                    <h3 className="font-display font-extrabold text-xl text-white uppercase">{project.title}</h3>
-                    <p className="text-xs text-gray-400 font-light mt-1">{project.subtitle}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
+
+                    <div className="absolute bottom-6 left-6 right-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-mono tracking-widest text-brand-red uppercase bg-brand-red/10 px-2.5 py-1 rounded-full border border-brand-red/20">{project.categoryLabel}</span>
+                        <span className="text-xs font-mono text-gray-300 flex items-center gap-1.5"><Eye className="w-3.5 h-3.5 text-brand-red" />{project.views} Views</span>
+                      </div>
+                      <h3 className="font-display font-extrabold text-xl text-white uppercase">{project.title}</h3>
+                      <p className="text-xs text-gray-400 font-light mt-1">{project.subtitle}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          )}
         </div>
       </section>
 
@@ -1156,6 +1119,10 @@ export default function App() {
         onClose={() => setIsAccountSettingsOpen(false)}
         user={currentUser}
         onLogout={handleLogout}
+        onUpdateUser={(updatedUser) => {
+          setCurrentUser(updatedUser);
+          localStorage.setItem('all_red_user_session', JSON.stringify(updatedUser));
+        }}
       />
 
     </div>
