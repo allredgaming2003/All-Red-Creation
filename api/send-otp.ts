@@ -1,5 +1,11 @@
 import nodemailer from "nodemailer";
-import { otpStore } from "./_store";
+
+// Shared global in-memory store for Vercel serverless lambdas
+const g = globalThis as unknown as { _otpStore?: Map<string, { code: string; expiresAt: number; name?: string }> };
+if (!g._otpStore) {
+  g._otpStore = new Map();
+}
+const otpStore = g._otpStore;
 
 function createMailTransporter() {
   const host = process.env.SMTP_HOST || "smtp.gmail.com";
@@ -13,12 +19,16 @@ function createMailTransporter() {
       port,
       secure: port === 465,
       auth: { user, pass },
+      tls: {
+        rejectUnauthorized: false
+      }
     });
   }
   return null;
 }
 
 export default async function handler(req: any, res: any) {
+  // Always set CORS headers
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -41,6 +51,7 @@ export default async function handler(req: any, res: any) {
         body = {};
       }
     }
+
     const { email, name } = body || {};
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return res.status(400).json({ success: false, error: "Valid email address is required." });
@@ -49,6 +60,7 @@ export default async function handler(req: any, res: any) {
     const cleanEmail = email.toLowerCase().trim();
     const recipientName = name ? String(name).trim() : "Valued Member";
 
+    // Generate 6-digit random code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = Date.now() + 10 * 60 * 1000;
 
@@ -87,10 +99,15 @@ export default async function handler(req: any, res: any) {
         emailNotice = `Verification email sent successfully to ${cleanEmail}`;
       } catch (mailErr: any) {
         console.error("Nodemailer SMTP Error:", mailErr?.message || mailErr);
-        emailNotice = `SMTP error sending to inbox: ${mailErr?.message}.`;
+        // Instead of throwing 500, return clear user-friendly error details!
+        return res.status(400).json({
+          success: false,
+          error: `Gmail SMTP Connection Error: ${mailErr?.message || "Invalid Gmail App Password"}. Please verify SMTP_USER & SMTP_PASS in Vercel.`,
+          devOtp: code,
+        });
       }
     } else {
-      emailNotice = `SMTP credentials not configured on Vercel environment variables (SMTP_USER/SMTP_PASS).`;
+      emailNotice = "SMTP credentials not configured on Vercel environment variables.";
     }
 
     return res.status(200).json({
@@ -101,6 +118,9 @@ export default async function handler(req: any, res: any) {
       devOtp: code,
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message || "Failed to dispatch OTP." });
+    return res.status(200).json({
+      success: false,
+      error: err?.message || "Internal server error",
+    });
   }
 }

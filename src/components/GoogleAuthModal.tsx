@@ -83,13 +83,13 @@ export default function GoogleAuthModal({
         data = JSON.parse(responseText);
       } catch (parseErr) {
         setSendingOtp(false);
-        setErrorMessage(`Server response error (${response.status}). Please verify Vercel deployment configuration.`);
+        setErrorMessage(`Server route error (${response.status}). Please check Vercel environment variables.`);
         return;
       }
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         setSendingOtp(false);
-        setErrorMessage(data.error || 'Failed to send OTP code. Please try again.');
+        setErrorMessage(data.error || 'Failed to send OTP code. Please check your email address or SMTP configuration.');
         return;
       }
 
@@ -146,7 +146,7 @@ export default function GoogleAuthModal({
         return;
       }
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         setErrorMessage(data.error || 'Incorrect OTP Code. Please check your email for the 6-digit code.');
         return;
       }

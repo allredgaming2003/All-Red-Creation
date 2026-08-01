@@ -1,4 +1,8 @@
-import { otpStore } from "./_store";
+const g = globalThis as unknown as { _otpStore?: Map<string, { code: string; expiresAt: number; name?: string }> };
+if (!g._otpStore) {
+  g._otpStore = new Map();
+}
+const otpStore = g._otpStore;
 
 export default function handler(req: any, res: any) {
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -23,6 +27,7 @@ export default function handler(req: any, res: any) {
         body = {};
       }
     }
+
     const { email, code } = body || {};
     if (!email || !code) {
       return res.status(400).json({ success: false, error: "Email and OTP code are required." });
@@ -63,6 +68,6 @@ export default function handler(req: any, res: any) {
       message: "Email address successfully verified via OTP!",
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message || "Verification failed." });
+    return res.status(200).json({ success: false, error: err.message || "Verification failed." });
   }
 }
