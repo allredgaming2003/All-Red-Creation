@@ -34,6 +34,7 @@ export default function GoogleAuthModal({
   // OTP Sign Up Flow States
   const [otpSent, setOtpSent] = useState<boolean>(false);
   const [generatedOtp, setGeneratedOtp] = useState<string>('');
+  const [otpToken, setOtpToken] = useState<string>('');
   const [otpInput, setOtpInput] = useState<string>('');
   const [isOtpVerified, setIsOtpVerified] = useState<boolean>(false);
   const [otpTimer, setOtpTimer] = useState<number>(0);
@@ -95,6 +96,9 @@ export default function GoogleAuthModal({
 
       setSendingOtp(false);
       setOtpSent(true);
+      if (data.otpToken) {
+        setOtpToken(data.otpToken);
+      }
       if (data.devOtp) {
         setGeneratedOtp(data.devOtp);
       }
@@ -134,6 +138,7 @@ export default function GoogleAuthModal({
         body: JSON.stringify({
           email: emailInput.trim(),
           code: cleanInput,
+          otpToken: otpToken,
         }),
       });
 

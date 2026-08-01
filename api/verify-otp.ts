@@ -1,8 +1,6 @@
-const g = globalThis as unknown as { _otpStore?: Map<string, { code: string; expiresAt: number; name?: string }> };
-if (!g._otpStore) {
-  g._otpStore = new Map();
-}
-const otpStore = g._otpStore;
+import crypto from "crypto";
+
+const SECRET_SALT = process.env.SMTP_PASS || process.env.JWT_SECRET || "all-red-creation-secure-otp-key-2026";
 
 export default function handler(req: any, res: any) {
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -28,7 +26,7 @@ export default function handler(req: any, res: any) {
       }
     }
 
-    const { email, code } = body || {};
+    const { email, code, otpToken } = body || {};
     if (!email || !code) {
       return res.status(400).json({ success: false, error: "Email and OTP code are required." });
     }
@@ -36,31 +34,60 @@ export default function handler(req: any, res: any) {
     const cleanEmail = String(email).toLowerCase().trim();
     const cleanCode = String(code).trim();
 
-    const record = otpStore.get(cleanEmail);
-
-    if (!record) {
+    if (!otpToken || typeof otpToken !== "string") {
       return res.status(400).json({
         success: false,
-        error: "No active OTP request found for this email. Please click 'Get OTP Code' to receive a code.",
+        error: "No active OTP session found. Please click 'Get OTP Code' to send a code to your email.",
       });
     }
 
-    if (Date.now() > record.expiresAt) {
-      otpStore.delete(cleanEmail);
+    // Decode and verify the HMAC signed token
+    let decodedStr = "";
+    try {
+      decodedStr = Buffer.from(otpToken, "base64").toString("utf-8");
+    } catch (e) {
+      return res.status(400).json({ success: false, error: "Invalid OTP session token format." });
+    }
+
+    const parts = decodedStr.split(":");
+    if (parts.length !== 4) {
+      return res.status(400).json({ success: false, error: "Malformed OTP session token." });
+    }
+
+    const [tokenEmail, tokenCode, tokenExpiresAtStr, tokenSignature] = parts;
+    const expiresAt = parseInt(tokenExpiresAtStr, 10);
+
+    // Verify token HMAC signature
+    const expectedPayload = `${tokenEmail}:${tokenCode}:${tokenExpiresAtStr}`;
+    const expectedSignature = crypto.createHmac("sha256", SECRET_SALT).update(expectedPayload).digest("hex");
+
+    if (tokenSignature !== expectedSignature) {
+      return res.status(400).json({ success: false, error: "Security validation failed. Invalid OTP token signature." });
+    }
+
+    // Verify recipient email matches
+    if (tokenEmail !== cleanEmail) {
       return res.status(400).json({
         success: false,
-        error: "OTP code has expired (10 min limit). Please request a new OTP code.",
+        error: `OTP code was requested for a different email address. Please request a new OTP for ${cleanEmail}.`,
       });
     }
 
-    if (record.code !== cleanCode) {
+    // Verify expiry (10 minutes)
+    if (Date.now() > expiresAt) {
       return res.status(400).json({
         success: false,
-        error: "Incorrect OTP Code! Please enter the exact 6-digit OTP code sent to your email.",
+        error: "OTP code has expired (10 min limit). Please click 'Get OTP Code' to resend.",
       });
     }
 
-    otpStore.delete(cleanEmail);
+    // Verify exact 6-digit OTP code match
+    if (tokenCode !== cleanCode) {
+      return res.status(400).json({
+        success: false,
+        error: "Incorrect OTP Code! Please enter the exact 6-digit OTP code sent to your Gmail inbox.",
+      });
+    }
 
     return res.status(200).json({
       success: true,

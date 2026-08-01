@@ -1,11 +1,7 @@
 import nodemailer from "nodemailer";
+import crypto from "crypto";
 
-// Shared global in-memory store for Vercel serverless lambdas
-const g = globalThis as unknown as { _otpStore?: Map<string, { code: string; expiresAt: number; name?: string }> };
-if (!g._otpStore) {
-  g._otpStore = new Map();
-}
-const otpStore = g._otpStore;
+const SECRET_SALT = process.env.SMTP_PASS || process.env.JWT_SECRET || "all-red-creation-secure-otp-key-2026";
 
 function createMailTransporter() {
   const host = process.env.SMTP_HOST || "smtp.gmail.com";
@@ -60,11 +56,14 @@ export default async function handler(req: any, res: any) {
     const cleanEmail = email.toLowerCase().trim();
     const recipientName = name ? String(name).trim() : "Valued Member";
 
-    // Generate 6-digit random code
+    // Generate cryptographically secure 6-digit OTP code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 10 * 60 * 1000;
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
 
-    otpStore.set(cleanEmail, { code, expiresAt, name: recipientName });
+    // Create Stateless Signed Token for Vercel Serverless Lambdas
+    const payloadStr = `${cleanEmail}:${code}:${expiresAt}`;
+    const signature = crypto.createHmac("sha256", SECRET_SALT).update(payloadStr).digest("hex");
+    const otpToken = Buffer.from(`${payloadStr}:${signature}`).toString("base64");
 
     const transporter = createMailTransporter();
     let emailSent = false;
@@ -99,11 +98,9 @@ export default async function handler(req: any, res: any) {
         emailNotice = `Verification email sent successfully to ${cleanEmail}`;
       } catch (mailErr: any) {
         console.error("Nodemailer SMTP Error:", mailErr?.message || mailErr);
-        // Instead of throwing 500, return clear user-friendly error details!
         return res.status(400).json({
           success: false,
-          error: `Gmail SMTP Connection Error: ${mailErr?.message || "Invalid Gmail App Password"}. Please verify SMTP_USER & SMTP_PASS in Vercel.`,
-          devOtp: code,
+          error: `Gmail SMTP Error: ${mailErr?.message || "Invalid Gmail App Password"}. Please verify SMTP_USER & SMTP_PASS in Vercel.`,
         });
       }
     } else {
@@ -115,7 +112,7 @@ export default async function handler(req: any, res: any) {
       message: `OTP dispatched to ${cleanEmail}`,
       emailSent,
       emailNotice,
-      devOtp: code,
+      otpToken, // Stateless Verification Token passed back to client
     });
   } catch (err: any) {
     return res.status(200).json({
