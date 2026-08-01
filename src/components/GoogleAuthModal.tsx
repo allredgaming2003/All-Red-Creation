@@ -77,7 +77,15 @@ export default function GoogleAuthModal({
         }),
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseErr) {
+        setSendingOtp(false);
+        setErrorMessage(`Server response error (${response.status}). Please verify Vercel deployment configuration.`);
+        return;
+      }
 
       if (!response.ok || !data.success) {
         setSendingOtp(false);
@@ -104,7 +112,7 @@ export default function GoogleAuthModal({
       }, 1000);
     } catch (err: any) {
       setSendingOtp(false);
-      setErrorMessage('Server connection error. Please try again.');
+      setErrorMessage('Network connection error. Please check your internet connection.');
     }
   };
 
@@ -129,10 +137,17 @@ export default function GoogleAuthModal({
         }),
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseErr) {
+        setErrorMessage(`Verification error (${response.status}). Please check network or server status.`);
+        return;
+      }
 
       if (!response.ok || !data.success) {
-        setErrorMessage(data.error || 'Incorrect OTP Code. Please check your email notification for the 6-digit code.');
+        setErrorMessage(data.error || 'Incorrect OTP Code. Please check your email for the 6-digit code.');
         return;
       }
 
