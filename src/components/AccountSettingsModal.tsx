@@ -4,23 +4,15 @@ import {
   X, 
   User, 
   Mail, 
-  Shield, 
   LogOut, 
   Settings, 
-  Clock, 
   CheckCircle2, 
   Bell, 
-  Key, 
-  Smartphone, 
   Sparkles, 
   Save, 
   RefreshCw, 
   Phone, 
-  Building, 
-  Crown, 
-  Laptop, 
-  Check,
-  AlertCircle
+  Building
 } from 'lucide-react';
 import { UserSession } from './GoogleAuthModal';
 import { saveUserToFirestore } from '../lib/firebase';
@@ -33,7 +25,7 @@ interface AccountSettingsModalProps {
   onUpdateUser?: (updatedUser: UserSession) => void;
 }
 
-type TabType = 'profile' | 'security' | 'notifications' | 'membership';
+type TabType = 'profile' | 'notifications';
 
 export default function AccountSettingsModal({
   isOpen,
@@ -46,15 +38,10 @@ export default function AccountSettingsModal({
   
   // Profile edit fields
   const [name, setName] = useState<string>('');
-  const [phone, setPhone] = useState<string>('+1 (555) 234-5678');
+  const [phone, setPhone] = useState<string>('');
   const [organization, setOrganization] = useState<string>('All Red Media');
   const [role, setRole] = useState<string>('Content Creator & Producer');
   const [avatarSeed, setAvatarSeed] = useState<number>(0);
-
-  // Security settings
-  const [twoFactor, setTwoFactor] = useState<boolean>(true);
-  const [sessionDuration, setSessionDuration] = useState<string>('30 Days');
-  const [passwordSent, setPasswordSent] = useState<boolean>(false);
 
   // Notification toggles
   const [notifyLeads, setNotifyLeads] = useState<boolean>(true);
@@ -73,16 +60,6 @@ export default function AccountSettingsModal({
   }, [user]);
 
   if (!isOpen) return null;
-
-  const formattedDate = user?.loggedInAt 
-    ? new Date(user.loggedInAt).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    : 'Active Session';
 
   const handleAvatarRefresh = () => {
     setAvatarSeed(prev => prev + 1);
@@ -125,11 +102,6 @@ export default function AccountSettingsModal({
     }, 400);
   };
 
-  const handlePasswordResetRequest = () => {
-    setPasswordSent(true);
-    setTimeout(() => setPasswordSent(false), 4000);
-  };
-
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md">
@@ -151,7 +123,7 @@ export default function AccountSettingsModal({
               </div>
               <div>
                 <h3 className="font-display font-bold text-base text-white uppercase tracking-wider">Account Settings</h3>
-                <p className="text-xs text-gray-400 font-mono">Profile, security & preferences</p>
+                <p className="text-xs text-gray-400 font-mono">Profile & preferences</p>
               </div>
             </div>
 
@@ -200,15 +172,8 @@ export default function AccountSettingsModal({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h4 className="text-base font-semibold text-white truncate">{name || user.name}</h4>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-red/10 border border-brand-red/30 text-brand-red text-[10px] font-mono font-bold uppercase">
-                        <Crown className="w-3 h-3" /> Pro Member
-                      </span>
                     </div>
                     <p className="text-xs text-gray-400 font-mono truncate mt-0.5">{user.email}</p>
-                    <p className="text-[11px] text-gray-500 font-mono mt-0.5 flex items-center gap-1">
-                      <Shield className="w-3 h-3 text-emerald-400" />
-                      <span>{user.provider === 'google' ? 'Google OAuth Protected' : 'Encrypted Password Auth'}</span>
-                    </p>
                   </div>
                 </div>
               </div>
@@ -230,19 +195,6 @@ export default function AccountSettingsModal({
 
                 <button
                   type="button"
-                  onClick={() => setActiveTab('security')}
-                  className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
-                    activeTab === 'security'
-                      ? 'bg-brand-red text-white shadow-md shadow-brand-red/20'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  <span>Security & Auth</span>
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => setActiveTab('notifications')}
                   className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
                     activeTab === 'notifications'
@@ -252,19 +204,6 @@ export default function AccountSettingsModal({
                 >
                   <Bell className="w-3.5 h-3.5" />
                   <span>Preferences</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('membership')}
-                  className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
-                    activeTab === 'membership'
-                      ? 'bg-brand-red text-white shadow-md shadow-brand-red/20'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <Crown className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Membership</span>
                 </button>
               </div>
 
@@ -350,7 +289,7 @@ export default function AccountSettingsModal({
                           type="text"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
-                          placeholder="+1 (555) 000-0000"
+                          placeholder="Enter your phone number"
                           className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-red transition-all"
                         />
                       </div>
@@ -358,87 +297,7 @@ export default function AccountSettingsModal({
                   </div>
                 )}
 
-                {/* TAB 2: SECURITY & AUTH */}
-                {activeTab === 'security' && (
-                  <div className="space-y-4">
-                    <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Shield className="w-4 h-4 text-brand-red" />
-                          <span className="text-xs font-semibold text-white">Authentication Protocol</span>
-                        </div>
-                        <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-mono border border-emerald-500/20">
-                          ACTIVE
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400">
-                        Logged in via <span className="text-white font-medium">{user.provider === 'google' ? 'Google OAuth 2.0 Identity Platform' : 'Standard Encrypted Password'}</span>.
-                      </p>
-                    </div>
-
-                    {/* Password Reset option */}
-                    <div className="p-3.5 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between gap-3">
-                      <div>
-                        <h5 className="text-xs font-semibold text-white flex items-center gap-1.5">
-                          <Key className="w-3.5 h-3.5 text-brand-red" />
-                          Password Security
-                        </h5>
-                        <p className="text-[11px] text-gray-400 mt-0.5">Send a secure reset link to {user.email}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handlePasswordResetRequest}
-                        disabled={passwordSent}
-                        className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-all shrink-0 cursor-pointer disabled:opacity-50"
-                      >
-                        {passwordSent ? 'Email Sent ✓' : 'Reset Link'}
-                      </button>
-                    </div>
-
-                    {/* 2FA Toggle */}
-                    <div className="p-3.5 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between gap-3">
-                      <div>
-                        <h5 className="text-xs font-semibold text-white flex items-center gap-1.5">
-                          <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
-                          Two-Factor Authentication (2FA)
-                        </h5>
-                        <p className="text-[11px] text-gray-400 mt-0.5">Require device verification code on new sign-ins</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setTwoFactor(!twoFactor)}
-                        className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
-                          twoFactor ? 'bg-brand-red' : 'bg-white/20'
-                        }`}
-                      >
-                        <span className={`block w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${
-                          twoFactor ? 'left-6' : 'left-1'
-                        }`} />
-                      </button>
-                    </div>
-
-                    {/* Active Sessions */}
-                    <div className="pt-2">
-                      <h5 className="text-[11px] font-mono text-gray-400 uppercase tracking-wider mb-2">
-                        Active Device Session
-                      </h5>
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2.5">
-                          <Laptop className="w-4 h-4 text-gray-300" />
-                          <div>
-                            <p className="font-semibold text-white">Current Browser Window</p>
-                            <p className="text-[10px] text-gray-400 font-mono">Started: {formattedDate}</p>
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                          Online
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB 3: PREFERENCES & NOTIFICATIONS */}
+                {/* TAB 2: PREFERENCES & NOTIFICATIONS */}
                 {activeTab === 'notifications' && (
                   <div className="space-y-3">
                     <div className="p-3.5 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between gap-3">
@@ -511,42 +370,6 @@ export default function AccountSettingsModal({
                           notifyMarketing ? 'left-6' : 'left-1'
                         }`} />
                       </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB 4: MEMBERSHIP */}
-                {activeTab === 'membership' && (
-                  <div className="space-y-4">
-                    <div className="p-4 rounded-2xl bg-gradient-to-r from-brand-red/20 via-black to-brand-red/10 border border-brand-red/40 relative overflow-hidden">
-                      <div className="flex items-start justify-between relative z-10">
-                        <div>
-                          <span className="px-2.5 py-1 rounded-full bg-brand-red text-white font-mono font-bold text-[10px] uppercase tracking-wider inline-flex items-center gap-1 shadow-md">
-                            <Crown className="w-3 h-3" /> All Red Enterprise Access
-                          </span>
-                          <h4 className="text-base font-bold text-white mt-2">Unlimited Creator Portal</h4>
-                          <p className="text-xs text-gray-300 mt-1">Full access to video portfolio management, leads dashboard, and client booking pipeline.</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-white/10 text-xs">
-                        <div className="flex items-center gap-1.5 text-gray-200">
-                          <Check className="w-3.5 h-3.5 text-brand-red shrink-0" />
-                          <span>4K Video Rendering</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-gray-200">
-                          <Check className="w-3.5 h-3.5 text-brand-red shrink-0" />
-                          <span>Firestore Database Sync</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-gray-200">
-                          <Check className="w-3.5 h-3.5 text-brand-red shrink-0" />
-                          <span>Priority Lead Dispatch</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-gray-200">
-                          <Check className="w-3.5 h-3.5 text-brand-red shrink-0" />
-                          <span>Dedicated Support</span>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 )}

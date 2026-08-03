@@ -523,11 +523,11 @@ export default function HtmlExporter() {
                   </p>
                   <div class="flex items-center gap-4">
                     <div class="w-12 h-12 rounded-full bg-zinc-800 overflow-hidden border border-brand-red/30">
-                      <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80" alt="Marcus" class="w-full h-full object-cover">
+                      <img src="/abhay_kashyap.png" alt="Abhay Kashyap" class="w-full h-full object-cover">
                     </div>
                     <div>
-                      <h4 class="font-display font-extrabold text-white text-base">MARCUS THORNE</h4>
-                      <p class="text-xs text-brand-red font-mono uppercase tracking-widest mt-0.5">Founder, Thorne Capital</p>
+                      <h4 class="font-display font-extrabold text-white text-base">ABHAY KASHYAP</h4>
+                      <p class="text-xs text-brand-red font-mono uppercase tracking-widest mt-0.5">Founder & Creative Director</p>
                     </div>
                   </div>
                 </div>
@@ -551,11 +551,11 @@ export default function HtmlExporter() {
                   </p>
                   <div class="flex items-center gap-4">
                     <div class="w-12 h-12 rounded-full bg-zinc-800 overflow-hidden border border-brand-red/30">
-                      <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" alt="Elena" class="w-full h-full object-cover">
+                      <img src="/abhay_kashyap.png" alt="Abhay Kashyap" class="w-full h-full object-cover">
                     </div>
                     <div>
-                      <h4 class="font-display font-extrabold text-white text-base">ELENA ROSTOVA</h4>
-                      <p class="text-xs text-brand-red font-mono uppercase tracking-widest mt-0.5">Marketing Director, Velo Lux</p>
+                      <h4 class="font-display font-extrabold text-white text-base">ABHAY KASHYAP</h4>
+                      <p class="text-xs text-brand-red font-mono uppercase tracking-widest mt-0.5">Lead Director & Creator</p>
                     </div>
                   </div>
                 </div>
@@ -579,11 +579,11 @@ export default function HtmlExporter() {
                   </p>
                   <div class="flex items-center gap-4">
                     <div class="w-12 h-12 rounded-full bg-zinc-800 overflow-hidden border border-brand-red/30">
-                      <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=100&q=80" alt="Sarah" class="w-full h-full object-cover">
+                      <img src="/abhay_kashyap.png" alt="Abhay Kashyap" class="w-full h-full object-cover">
                     </div>
                     <div>
-                      <h4 class="font-display font-extrabold text-white text-base">SAMUEL KEMP</h4>
-                      <p class="text-xs text-brand-red font-mono uppercase tracking-widest mt-0.5">Lead Creator, TechWave HQ</p>
+                      <h4 class="font-display font-extrabold text-white text-base">ABHAY KASHYAP</h4>
+                      <p class="text-xs text-brand-red font-mono uppercase tracking-widest mt-0.5">Founder, ARC Media</p>
                     </div>
                   </div>
                 </div>
@@ -647,7 +647,7 @@ export default function HtmlExporter() {
               </span>
               <div>
                 <div class="text-xs font-mono text-gray-500 uppercase tracking-widest">Chat on WhatsApp</div>
-                <a href="https://wa.me/447700900077?text=Hello%20All%20Red%20Creation%2C%20I%20would%20like%20to%20discuss%20a%20video%20production%20project." target="_blank" class="text-white hover:text-green-500 transition-colors font-medium">+44 7700 900077</a>
+                <a href="https://wa.me/917303869067?text=Hello%20All%20Red%20Creation%2C%20I%20would%20like%20to%20discuss%20a%20video%20production%20project." target="_blank" class="text-white hover:text-green-500 transition-colors font-medium">+91 7303869067</a>
               </div>
             </div>
           </div>
@@ -945,7 +945,7 @@ export default function HtmlExporter() {
       
       const whatsappText = 'Hello All Red Creation! I am ' + name + '. I would like to discuss a ' + projectType + ' with an estimated budget of ' + budget + '.';
       const encodedText = encodeURIComponent(whatsappText);
-      window.open('https://wa.me/447700900077?text=' + encodedText, '_blank');
+      window.open('https://wa.me/917303869067?text=' + encodedText, '_blank');
     });
   </script>
 </body>

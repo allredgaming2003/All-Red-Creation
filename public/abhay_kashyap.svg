@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 720" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f8fafc"/>
+    </linearGradient>
+
+    <!-- Suit Jacket Gradient -->
+    <linearGradient id="suitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e2638"/>
+      <stop offset="50%" stop-color="#141a26"/>
+      <stop offset="100%" stop-color="#0b0f17"/>
+    </linearGradient>
+
+    <!-- Suit Lapel Shadow -->
+    <linearGradient id="lapelShadow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#070a10"/>
+      <stop offset="100%" stop-color="#182030"/>
+    </linearGradient>
+
+    <!-- Skin Tone Gradient -->
+    <linearGradient id="skinBase" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e8bfa0"/>
+      <stop offset="50%" stop-color="#dcad8b"/>
+      <stop offset="100%" stop-color="#c99874"/>
+    </linearGradient>
+
+    <!-- Skin Shadow Gradient -->
+    <linearGradient id="skinShadow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#b8805c"/>
+      <stop offset="100%" stop-color="#9e6947"/>
+    </linearGradient>
+
+    <!-- Hair Gradient -->
+    <linearGradient id="hairMain" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8a5638"/>
+      <stop offset="35%" stop-color="#5c3822"/>
+      <stop offset="70%" stop-color="#361f12"/>
+      <stop offset="100%" stop-color="#1c0f08"/>
+    </linearGradient>
+
+    <!-- Hair Highlight -->
+    <linearGradient id="hairHighlight" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#a66e4a"/>
+      <stop offset="50%" stop-color="#8a5638"/>
+      <stop offset="100%" stop-color="#4a2d1a"/>
+    </linearGradient>
+
+    <!-- Soft Drop Shadow -->
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Clean White Studio Background -->
+  <rect width="600" height="720" fill="url(#bgGrad)"/>
+
+  <g filter="url(#softShadow)">
+    <!-- Suit Shoulders & Torso -->
+    <path d="M 50 720 L 140 450 C 180 415 240 405 300 405 C 360 405 420 415 460 450 L 550 720 Z" fill="url(#suitGrad)"/>
+
+    <!-- Suit V-Opening -->
+    <path d="M 210 410 L 300 620 L 390 410 Z" fill="#ffffff"/>
+
+    <!-- Left Suit Lapel -->
+    <path d="M 140 450 L 225 610 L 255 420 Z" fill="url(#lapelShadow)"/>
+    
+    <!-- Right Suit Lapel -->
+    <path d="M 460 450 L 375 610 L 345 420 Z" fill="url(#suitGrad)"/>
+
+    <!-- White Shirt Collar & Placket -->
+    <polygon points="210,410 300,560 390,410 340,410 300,470 260,410" fill="#f8fafc"/>
+    <path d="M 245 375 L 300 480 L 275 480 Z" fill="#e2e8f0"/>
+    <path d="M 355 375 L 300 480 L 325 480 Z" fill="#cbd5e1"/>
+    
+    <!-- Shirt Collar Wings -->
+    <path d="M 230 355 L 285 435 L 265 435 Z" fill="#ffffff"/>
+    <path d="M 370 355 L 315 435 L 335 435 Z" fill="#ffffff"/>
+
+    <!-- Top Black Shirt Button -->
+    <circle cx="300" cy="510" r="4.5" fill="#1e293b"/>
+    <circle cx="300" cy="580" r="4.5" fill="#1e293b"/>
+
+    <!-- Neck -->
+    <rect x="255" y="310" width="90" height="110" rx="16" fill="url(#skinBase)"/>
+    <!-- Neck Shadow under chin -->
+    <path d="M 255 330 C 280 365 320 365 345 330 L 345 370 C 315 390 285 390 255 370 Z" fill="url(#skinShadow)" opacity="0.45"/>
+
+    <!-- Ears -->
+    <ellipse cx="198" cy="265" rx="16" ry="28" fill="url(#skinBase)"/>
+    <ellipse cx="198" cy="265" rx="10" ry="18" fill="#c99874" opacity="0.4"/>
+    
+    <ellipse cx="402" cy="265" rx="16" ry="28" fill="url(#skinBase)"/>
+    <ellipse cx="402" cy="265" rx="10" ry="18" fill="#c99874" opacity="0.4"/>
+
+    <!-- Head & Face Contour (Indian Male Portrait Likeness) -->
+    <path d="M 205 240 C 200 340 230 400 300 400 C 370 400 400 340 395 240 C 395 160 370 115 300 115 C 230 115 205 160 205 240 Z" fill="url(#skinBase)"/>
+
+    <!-- Jaw & Cheek Shadow Definition -->
+    <path d="M 205 260 C 220 340 250 385 300 395 C 350 385 380 340 395 260 C 375 350 345 385 300 385 C 255 385 225 350 205 260 Z" fill="url(#skinShadow)" opacity="0.25"/>
+
+    <!-- Eyes Structure -->
+    <!-- Left Eye -->
+    <g>
+      <path d="M 240 245 Q 262 232 284 245 Q 262 258 240 245 Z" fill="#ffffff"/>
+      <ellipse cx="262" cy="245" rx="9" ry="9" fill="#2d1c13"/>
+      <circle cx="262" cy="245" r="4.5" fill="#0d0704"/>
+      <circle cx="264" cy="242" r="2.5" fill="#ffffff" opacity="0.9"/>
+      <path d="M 238 244 Q 262 230 286 244" stroke="#26160c" stroke-width="3" stroke-linecap="round" fill="none"/>
+    </g>
+
+    <!-- Right Eye -->
+    <g>
+      <path d="M 316 245 Q 338 232 360 245 Q 338 258 316 245 Z" fill="#ffffff"/>
+      <ellipse cx="338" cy="245" rx="9" ry="9" fill="#2d1c13"/>
+      <circle cx="338" cy="245" r="4.5" fill="#0d0704"/>
+      <circle cx="340" cy="242" r="2.5" fill="#ffffff" opacity="0.9"/>
+      <path d="M 314 244 Q 338 230 362 244" stroke="#26160c" stroke-width="3" stroke-linecap="round" fill="none"/>
+    </g>
+
+    <!-- Eyebrows (Neat Dark Arch) -->
+    <path d="M 232 225 Q 260 212 288 222" stroke="#26160c" stroke-width="6.5" stroke-linecap="round" fill="none"/>
+    <path d="M 312 222 Q 340 212 368 225" stroke="#26160c" stroke-width="6.5" stroke-linecap="round" fill="none"/>
+
+    <!-- Nose -->
+    <path d="M 300 220 L 294 285 Q 300 295 306 285 Z" fill="#b8805c" opacity="0.4"/>
+    <path d="M 290 285 Q 300 293 310 285" stroke="#a06847" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+
+    <!-- Lips -->
+    <path d="M 270 325 Q 300 318 330 325 Q 300 342 270 325 Z" fill="#b86d5c"/>
+    <path d="M 270 325 Q 300 327 330 325" stroke="#8a4738" stroke-width="2" fill="none"/>
+
+    <!-- Subtle Beard & Mustache Stubble -->
+    <!-- Mustache -->
+    <path d="M 274 314 Q 300 308 326 314 Q 300 320 274 314 Z" fill="#361f12" opacity="0.35"/>
+    <!-- Chin & Jaw Stubble -->
+    <path d="M 240 335 C 260 385 340 385 360 335 C 345 390 255 390 240 335 Z" fill="#361f12" opacity="0.22"/>
+
+    <!-- Hair (Stylish Textured Brown Hair Swept to Right) -->
+    <!-- Base Hair Contour -->
+    <path d="M 185 240 C 180 140 220 85 300 75 C 385 65 420 125 415 240 C 395 150 370 125 300 125 C 230 125 205 160 185 240 Z" fill="url(#hairMain)"/>
+
+    <!-- Swept Forehead Bangs & Highlights -->
+    <path d="M 185 220 C 190 140 240 95 310 80 C 375 68 418 100 420 170 C 400 120 350 90 280 100 C 230 108 195 150 185 220 Z" fill="url(#hairHighlight)"/>
+
+    <!-- Individual Hair Strands & Texture Layers -->
+    <path d="M 195 180 Q 260 110 370 95 Q 300 120 220 170 Z" fill="#9e623b"/>
+    <path d="M 210 150 Q 290 95 390 105 Q 320 115 240 160 Z" fill="#b07044"/>
+    <path d="M 230 120 Q 320 85 410 125 Q 330 110 260 145 Z" fill="#7a4425"/>
+    <path d="M 188 230 Q 196 165 240 130 Q 205 175 192 235 Z" fill="#2d1c13"/>
+    <path d="M 412 230 Q 404 165 360 130 Q 395 175 408 235 Z" fill="#2d1c13"/>
+
+    <!-- Sideburns -->
+    <path d="M 198 235 L 205 270 L 210 245 Z" fill="#361f12"/>
+    <path d="M 402 235 L 395 270 L 390 245 Z" fill="#361f12"/>
+  </g>
+</svg>

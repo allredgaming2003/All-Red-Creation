@@ -218,25 +218,25 @@ export default function App() {
 
   const testimonials: Testimonial[] = [
     {
-      name: 'MARCUS THORNE',
-      role: 'Founder, Thorne Capital',
+      name: 'ABHAY KASHYAP',
+      role: 'Founder & Creative Director',
       stars: 5,
       quote: "All Red Creation completely revolutionised our organic social marketing. Their hyper-dynamic edit style immediately boosted our Instagram Reels' retention by 42%. We closed three high-ticket consulting clients in the first month from a single viral short!",
-      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80'
+      image: '/abhay_kashyap.png'
     },
     {
-      name: 'ELENA ROSTOVA',
-      role: 'Marketing Director, Velo Lux',
+      name: 'ABHAY KASHYAP',
+      role: 'Lead Director & Creator',
       stars: 5,
       quote: "Working with ARC was seamless. They understood our premium brand values perfectly. The cinematic color grading and sound design they delivered on our commercial product film felt like a Hollywood production. Absolutely recommended!",
-      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'
+      image: '/abhay_kashyap.png'
     },
     {
-      name: 'SAMUEL KEMP',
-      role: 'Lead Creator, TechWave HQ',
+      name: 'ABHAY KASHYAP',
+      role: 'Founder, ARC Media',
       stars: 5,
       quote: "The scripting dynamic they integrated into our YouTube strategy was a complete game-changer. Our subscribers grew from 25k to over 100k in less than 4 months, and the production quality has set a whole new benchmark in our niche.",
-      image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=100&q=80'
+      image: '/abhay_kashyap.png'
     }
   ];
 
@@ -292,7 +292,7 @@ export default function App() {
   const handleWhatsAppRedirect = () => {
     const text = `Hello All Red Creation! I am ${formData.name || 'a visitor'}. I would like to discuss a ${formData.projectType || 'cinematic video'} project with an estimated budget of ${formData.budget || 'not specified'}.`;
     const encoded = encodeURIComponent(text);
-    window.open(`https://wa.me/447700900077?text=${encoded}`, '_blank');
+    window.open(`https://wa.me/917303869067?text=${encoded}`, '_blank');
   };
 
   const nextTestimonial = () => {
@@ -868,7 +868,7 @@ export default function App() {
                   </span>
                   <div>
                     <div className="text-xs font-mono text-gray-500 uppercase tracking-widest">Chat on WhatsApp</div>
-                    <a href="https://wa.me/447700900077?text=Hello%20All%20Red%20Creation%2C%20I%20would%20like%20to%20discuss%20a%20video%20production%20project." target="_blank" rel="noreferrer" className="text-white hover:text-green-500 transition-colors font-medium">+44 7700 900077</a>
+                    <a href="https://wa.me/917303869067?text=Hello%20All%20Red%20Creation%2C%20I%20would%20like%20to%20discuss%20a%20video%20production%20project." target="_blank" rel="noreferrer" className="text-white hover:text-green-500 transition-colors font-medium">+91 7303869067</a>
                   </div>
                 </div>
               </div>
