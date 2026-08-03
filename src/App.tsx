@@ -96,6 +96,11 @@ export default function App() {
   });
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState<boolean>(false);
 
+  const isUserAdmin = Boolean(
+    currentUser?.isAdmin || 
+    currentUser?.email?.toLowerCase() === 'all.red.gaming.2003@gmail.com'
+  );
+
   const handleLoginSuccess = (user: UserSession) => {
     setCurrentUser(user);
     localStorage.setItem('all_red_user_session', JSON.stringify(user));
@@ -336,21 +341,45 @@ export default function App() {
           {/* Desktop CTA & Auth Status */}
           <div className="hidden md:flex items-center gap-3">
             {currentUser ? (
-              <button
-                onClick={() => setIsAccountSettingsOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-200 transition-all cursor-pointer group"
-                title="Account Settings"
-              >
-                <div className="w-5 h-5 rounded-full bg-brand-red text-white flex items-center justify-center font-bold text-[10px] overflow-hidden flex-shrink-0">
-                  {currentUser.avatarUrl ? (
-                    <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
-                  ) : (
-                    currentUser.name.charAt(0)
-                  )}
-                </div>
-                <span className="font-mono text-[11px] text-gray-300 max-w-[130px] truncate">{currentUser.email}</span>
-                <Settings className="w-3.5 h-3.5 text-gray-400 group-hover:text-brand-red transition-colors ml-0.5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsAccountSettingsOpen(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-200 transition-all cursor-pointer group"
+                  title="Account Settings"
+                >
+                  <div className="w-5 h-5 rounded-full bg-brand-red text-white flex items-center justify-center font-bold text-[10px] overflow-hidden flex-shrink-0">
+                    {currentUser.avatarUrl ? (
+                      <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
+                    ) : (
+                      currentUser.name.charAt(0)
+                    )}
+                  </div>
+                  <span className="font-mono text-[11px] text-gray-300 max-w-[130px] truncate">{currentUser.email}</span>
+                  <Settings className="w-3.5 h-3.5 text-gray-400 group-hover:text-brand-red transition-colors ml-0.5" />
+                </button>
+
+                {isUserAdmin && (
+                  <>
+                    <button
+                      onClick={() => setIsAdminOpen(true)}
+                      className="px-3 py-1.5 rounded-full bg-brand-red/10 hover:bg-brand-red/20 border border-brand-red/30 text-brand-red text-xs font-semibold transition-all cursor-pointer flex items-center gap-1"
+                      title="Admin Panel"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Admin</span>
+                    </button>
+
+                    <button
+                      onClick={() => setIsLeadsOpen(true)}
+                      className="px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1"
+                      title="Client Leads CRM"
+                    >
+                      <Database className="w-3.5 h-3.5 text-brand-red" />
+                      <span>Leads ({leadsCount})</span>
+                    </button>
+                  </>
+                )}
+              </div>
             ) : (
               <button
                 onClick={() => setIsAuthModalOpen(true)}
@@ -425,7 +454,7 @@ export default function App() {
 
                 {/* Account Card snippet inside drawer */}
                 {currentUser && (
-                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-2.5">
+                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-8 h-8 rounded-full bg-brand-red text-white flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-brand-red/40 shadow-sm">
                         {currentUser.avatarUrl ? (
@@ -439,6 +468,31 @@ export default function App() {
                         <p className="text-[10px] text-gray-400 font-mono truncate">{currentUser.email}</p>
                       </div>
                     </div>
+
+                    {isUserAdmin && (
+                      <div className="flex gap-2 pt-2 border-t border-white/5">
+                        <button
+                          onClick={() => {
+                            setMobileMenuOpen(false);
+                            setIsAdminOpen(true);
+                          }}
+                          className="flex-1 py-1.5 rounded-lg bg-brand-red/15 border border-brand-red/30 text-brand-red text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>Admin</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setMobileMenuOpen(false);
+                            setIsLeadsOpen(true);
+                          }}
+                          className="flex-1 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Database className="w-3.5 h-3.5 text-brand-red" />
+                          <span>Leads ({leadsCount})</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
                 
@@ -605,13 +659,23 @@ export default function App() {
                   Sample demo projects have been removed. You can now add your real YouTube video links from your Admin Panel. Videos stream via YouTube with zero storage cost!
                 </p>
               </div>
-              <button
-                onClick={() => setIsAdminOpen(true)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-brand-red hover:bg-brand-red-dark text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(255,0,0,0.3)] cursor-pointer"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>Open Admin Dashboard to Add Videos</span>
-              </button>
+              {isUserAdmin ? (
+                <button
+                  onClick={() => setIsAdminOpen(true)}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-brand-red hover:bg-brand-red-dark text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(255,0,0,0.3)] cursor-pointer"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Open Admin Dashboard to Add Videos</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer border border-white/10"
+                >
+                  <User className="w-4 h-4 text-brand-red" />
+                  <span>Sign In as Owner to Manage Videos</span>
+                </button>
+              )}
             </div>
           ) : (
             <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1033,26 +1097,7 @@ export default function App() {
           </p>
 
           <div className="flex items-center gap-3">
-            {/* Subtle Admin Portal link */}
-            <button
-              onClick={() => setIsAdminOpen(true)}
-              className="text-[11px] text-gray-600 hover:text-gray-400 font-mono flex items-center gap-1 transition-colors cursor-pointer py-1 px-2 rounded hover:bg-white/5"
-              title="Admin Content Manager"
-            >
-              <span>🔒 Admin</span>
-            </button>
-
-            {/* Subtle CRM Leads link */}
-            <button
-              onClick={() => setIsLeadsOpen(true)}
-              className="text-[11px] text-gray-600 hover:text-gray-400 font-mono flex items-center gap-1 transition-colors cursor-pointer py-1 px-2 rounded hover:bg-white/5"
-              title="Leads Database"
-            >
-              <span>📊 Leads</span>
-              {leadsCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-brand-red inline-block"></span>
-              )}
-            </button>
+            <span className="text-xs text-gray-600 font-mono">Agency Operations</span>
           </div>
         </div>
       </footer>
@@ -1099,6 +1144,7 @@ export default function App() {
         onClose={() => setIsAdminOpen(false)} 
         projects={projects}
         onProjectsChange={handleProjectsChange}
+        onOpenLeadsDashboard={() => setIsLeadsOpen(true)}
       />
 
       {/* Leads CRM Dashboard Overlay */}

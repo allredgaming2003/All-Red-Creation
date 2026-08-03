@@ -36,6 +36,7 @@ interface AdminPanelProps {
   onClose: () => void;
   projects: Project[];
   onProjectsChange: (updatedProjects: Project[]) => void;
+  onOpenLeadsDashboard?: () => void;
 }
 
 // Preset cover images for quick selection when uploading
@@ -115,19 +116,14 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if ((username.trim().toLowerCase() === 'admin' || username.trim().toLowerCase() === 'admin@allred.com') && (password === 'admin' || password === 'admin123')) {
+    const cleanUser = username.trim().toLowerCase();
+    if (cleanUser === 'all.red.gaming.2003@gmail.com' && password === '722009') {
       setIsAuthenticated(true);
       localStorage.setItem('arc_admin_authed', 'true');
       setLoginError('');
     } else {
-      setLoginError('Invalid username or password. Default login: admin / admin123');
+      setLoginError('Invalid credentials! Admin login is restricted to owner email (all.red.gaming.2003@gmail.com) with password 722009.');
     }
-  };
-
-  const quickDemoLogin = () => {
-    setIsAuthenticated(true);
-    localStorage.setItem('arc_admin_authed', 'true');
-    setLoginError('');
   };
 
   const handleLogout = () => {
@@ -323,9 +319,9 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin"
+                  placeholder="Enter your email"
                   required
-                  className="w-full px-4 py-3 rounded-xl bg-bg-darker border border-white/10 focus:border-brand-red focus:outline-none text-white text-sm"
+                  className="w-full px-4 py-3 rounded-xl bg-bg-darker border border-white/10 focus:border-brand-red focus:outline-none text-white text-sm font-mono"
                 />
               </div>
 
@@ -335,7 +331,7 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Enter your password"
                   required
                   className="w-full px-4 py-3 rounded-xl bg-bg-darker border border-white/10 focus:border-brand-red focus:outline-none text-white text-sm"
                 />
@@ -351,19 +347,9 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
                 type="submit"
                 className="w-full py-3.5 bg-brand-red hover:bg-brand-red-dark text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(255,0,0,0.4)] cursor-pointer"
               >
-                Log In to Admin Panel
+                Log In as Owner Admin
               </button>
             </form>
-
-            <div className="pt-2 border-t border-white/5 w-full max-w-sm flex items-center justify-between text-xs">
-              <span className="text-gray-500 text-[11px]">Quick Demo Access:</span>
-              <button
-                onClick={quickDemoLogin}
-                className="text-brand-red hover:underline font-mono text-[11px] font-bold cursor-pointer"
-              >
-                ⚡ Click Here to Auto Login
-              </button>
-            </div>
           </div>
         ) : (
           /* AUTHENTICATED ADMIN DASHBOARD */

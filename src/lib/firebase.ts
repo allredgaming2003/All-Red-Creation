@@ -393,3 +393,15 @@ export async function fetchLeadsFromFirestore(): Promise<FirestoreLead[]> {
     return [];
   }
 }
+
+export async function deleteLeadFromFirestore(leadId: string): Promise<boolean> {
+  try {
+    const docRef = doc(db, 'leads', leadId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (err) {
+    console.warn('Notice deleting lead from Firestore:', err);
+    return false;
+  }
+}
+
