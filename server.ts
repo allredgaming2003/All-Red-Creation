@@ -175,6 +175,49 @@ app.post("/api/verify-otp", (req, res) => {
   }
 });
 
+// 4. Projects Persistence Backup API (Cross-Device Mobile/Desktop Sync)
+let serverProjectsStore: any[] = [];
+
+app.get("/api/projects", (_req, res) => {
+  return res.json({ success: true, projects: serverProjectsStore });
+});
+
+app.post("/api/projects", (req, res) => {
+  try {
+    const project = req.body;
+    if (!project || !project.id) {
+      return res.status(400).json({ success: false, error: "Project object with id required" });
+    }
+    const idx = serverProjectsStore.findIndex(p => p.id === project.id);
+    if (idx >= 0) {
+      serverProjectsStore[idx] = project;
+    } else {
+      serverProjectsStore.unshift(project);
+    }
+    return res.json({ success: true, projects: serverProjectsStore });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/api/projects/sync", (req, res) => {
+  try {
+    const { projects } = req.body;
+    if (Array.isArray(projects)) {
+      serverProjectsStore = projects;
+    }
+    return res.json({ success: true, projects: serverProjectsStore });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete("/api/projects/:id", (req, res) => {
+  const { id } = req.params;
+  serverProjectsStore = serverProjectsStore.filter(p => p.id !== id);
+  return res.json({ success: true, projects: serverProjectsStore });
+});
+
 // ==========================================
 // VITE / STATIC SERVING MIDDLEWARE
 // ==========================================

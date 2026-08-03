@@ -34,6 +34,7 @@ import AccountSettingsModal from './components/AccountSettingsModal';
 import { 
   saveLeadToFirestore, 
   fetchProjectsFromFirestore, 
+  subscribeProjectsFromFirestore,
   fetchLeadsFromFirestore, 
   saveProjectToFirestore,
   saveUserToFirestore,
@@ -144,6 +145,12 @@ export default function App() {
   const handleProjectsChange = (updatedProjects: Project[]) => {
     setProjects(updatedProjects);
     localStorage.setItem('arc_projects_data', JSON.stringify(updatedProjects));
+    // Dual sync to server backend API as well
+    fetch('/api/projects/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projects: updatedProjects })
+    }).catch((err) => console.warn('Server sync notice:', err));
   };
 
   // Form State
@@ -182,9 +189,8 @@ export default function App() {
     updateLeadsCount();
     window.addEventListener('arcInquirySubmitted', updateLeadsCount);
 
-    // Initial load of portfolio projects from Firestore DB
-    async function loadFirestoreProjects() {
-      const fsProjects = await fetchProjectsFromFirestore();
+    // 1. Subscribe to real-time Firestore projects feed (Syncs across desktop, mobile, tablet live)
+    const unsubscribeProjects = subscribeProjectsFromFirestore((fsProjects) => {
       if (fsProjects && fsProjects.length > 0) {
         const mapped: Project[] = fsProjects.map(p => {
           const cleanId = extractYouTubeId(p.videoUrl);
@@ -200,9 +206,25 @@ export default function App() {
           };
         });
         setProjects(mapped);
+        localStorage.setItem('arc_projects_data', JSON.stringify(mapped));
+        // Keep server backup API in sync
+        fetch('/api/projects/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projects: mapped })
+        }).catch(() => {});
       }
-    }
-    loadFirestoreProjects();
+    });
+
+    // 2. Fetch from Express Server API as instant fallback for mobile networks
+    fetch('/api/projects')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.projects) && data.projects.length > 0) {
+          setProjects(prev => (prev.length === 0 ? data.projects : prev));
+        }
+      })
+      .catch((err) => console.warn('Server API project fetch notice:', err));
     
     const handleScroll = () => {
       if (window.scrollY > 50) {
@@ -216,6 +238,9 @@ export default function App() {
     return () => {
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('arcInquirySubmitted', updateLeadsCount);
+      if (typeof unsubscribeProjects === 'function') {
+        unsubscribeProjects();
+      }
     };
   }, []);
 

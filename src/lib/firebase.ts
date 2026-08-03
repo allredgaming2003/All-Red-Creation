@@ -43,11 +43,19 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 const configObj = firebaseConfigData as unknown as { firestoreDatabaseId?: string };
 
-// Initialize Firestore with long polling to prevent WebSocket connectivity blocks
+// Initialize Firestore with fallback to getFirestore if already initialized
 const firestoreSettings = { experimentalForceLongPolling: true };
-export const db = configObj.firestoreDatabaseId 
-  ? initializeFirestore(app, firestoreSettings, configObj.firestoreDatabaseId)
-  : initializeFirestore(app, firestoreSettings);
+export const db = (() => {
+  try {
+    return configObj.firestoreDatabaseId 
+      ? initializeFirestore(app, firestoreSettings, configObj.firestoreDatabaseId)
+      : initializeFirestore(app, firestoreSettings);
+  } catch (e) {
+    return configObj.firestoreDatabaseId 
+      ? getFirestore(app, configObj.firestoreDatabaseId)
+      : getFirestore(app);
+  }
+})();
 
 // Initialize Auth
 export const auth = getAuth(app);
@@ -331,6 +339,27 @@ export async function fetchProjectsFromFirestore(): Promise<FirestoreProject[]> 
   } catch (err) {
     console.warn('Notice fetching projects from Firestore:', err);
     return [];
+  }
+}
+
+export function subscribeProjectsFromFirestore(callback: (projects: FirestoreProject[]) => void) {
+  try {
+    const q = collection(db, 'projects');
+    return onSnapshot(q, (snapshot) => {
+      const list: FirestoreProject[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({
+          id: docSnap.id,
+          ...docSnap.data()
+        } as FirestoreProject);
+      });
+      callback(list);
+    }, (err) => {
+      console.warn('Real-time projects listener notice:', err);
+    });
+  } catch (err) {
+    console.warn('Notice subscribing to projects:', err);
+    return () => {};
   }
 }
 
