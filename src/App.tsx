@@ -42,59 +42,8 @@ import {
   getRedirectResult
 } from './lib/firebase';
 
-// Default Showcase Portfolio Projects (Displays real YouTube showcase videos across Chrome & all browsers)
-const DEFAULT_PROJECTS: Project[] = [
-  {
-    id: 'demo-1',
-    title: 'High-Ticket Dark Luxury Reel',
-    subtitle: 'Dynamic Speed Ramps, Kinetic Sound Design & Color Grade',
-    category: 'reels',
-    categoryLabel: 'REELS & SHORTS',
-    views: '185K',
-    coverImage: 'https://i.ytimg.com/vi/ScMzIvxBSi4/hqdefault.jpg',
-    videoId: 'ScMzIvxBSi4'
-  },
-  {
-    id: 'demo-2',
-    title: 'Cinematic Brand Film - Automotive',
-    subtitle: 'Full Post-Production, VFX & High-Octane Sound Mix',
-    category: 'commercials',
-    categoryLabel: 'COMMERCIALS',
-    views: '240K',
-    coverImage: 'https://i.ytimg.com/vi/EngW7tLk63c/hqdefault.jpg',
-    videoId: 'EngW7tLk63c'
-  },
-  {
-    id: 'demo-3',
-    title: 'Viral YouTube Docu-Style Edit',
-    subtitle: 'Retention-Focused Storytelling, Graphics & Soundscapes',
-    category: 'youtube',
-    categoryLabel: 'YOUTUBE PRODUCTION',
-    views: '520K',
-    coverImage: 'https://i.ytimg.com/vi/3JZ_D3ELwOQ/hqdefault.jpg',
-    videoId: '3JZ_D3ELwOQ'
-  },
-  {
-    id: 'demo-4',
-    title: 'Podcast Shorts & Kinetic Captions',
-    subtitle: 'Custom Subtitles, Visual Hooks & Dynamic Pacing',
-    category: 'reels',
-    categoryLabel: 'REELS & SHORTS',
-    views: '310K',
-    coverImage: 'https://i.ytimg.com/vi/L_LUpnjgPso/hqdefault.jpg',
-    videoId: 'L_LUpnjgPso'
-  },
-  {
-    id: 'demo-5',
-    title: 'High-End Product Commercial',
-    subtitle: '3D Compositing, Studio Lighting & Color Grading',
-    category: 'commercials',
-    categoryLabel: 'COMMERCIALS',
-    views: '115K',
-    coverImage: 'https://i.ytimg.com/vi/tgbNymZ7vqY/hqdefault.jpg',
-    videoId: 'tgbNymZ7vqY'
-  }
-];
+// Default Portfolio Projects (Starts empty so owner can add real YouTube videos via Admin Panel)
+const DEFAULT_PROJECTS: Project[] = [];
 
 // Custom Type for Testimonials
 interface Testimonial {
@@ -768,16 +717,8 @@ export default function App() {
                     className="group relative overflow-hidden rounded-2xl glass-card aspect-video cursor-pointer"
                   >
                     <img 
-                      src={project.coverImage || `https://i.ytimg.com/vi/${project.videoId}/hqdefault.jpg`} 
+                      src={project.coverImage} 
                       alt={project.title} 
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        if (!target.src.includes('mqdefault')) {
-                          target.src = `https://i.ytimg.com/vi/${project.videoId}/mqdefault.jpg`;
-                        } else {
-                          target.src = 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80';
-                        }
-                      }}
                       className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90"></div>
@@ -1211,10 +1152,10 @@ export default function App() {
             >
               <iframe 
                 className="w-full h-full" 
-                src={`https://www.youtube-nocookie.com/embed/${selectedVideo}?autoplay=1&rel=0&enablejsapi=1`}
+                src={`https://www.youtube.com/embed/${selectedVideo}?autoplay=1&rel=0`}
                 title="Portfolio Video Playback"
                 frameBorder="0" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                 allowFullScreen
               />
             </motion.div>

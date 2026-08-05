@@ -479,12 +479,8 @@ export default function AdminPanel({ isOpen, onClose, projects, onProjectsChange
                     {extractYouTubeId(videoId) && (
                       <div className="p-3.5 bg-bg-darker border border-brand-red/30 rounded-2xl flex items-center gap-4 animate-fadeIn">
                         <img 
-                          src={`https://i.ytimg.com/vi/${extractYouTubeId(videoId)}/hqdefault.jpg`} 
+                          src={`https://img.youtube.com/vi/${extractYouTubeId(videoId)}/hqdefault.jpg`} 
                           alt="Thumbnail Preview" 
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = `https://i.ytimg.com/vi/${extractYouTubeId(videoId)}/mqdefault.jpg`;
-                          }}
                           className="w-28 h-16 object-cover rounded-xl border border-white/10 shadow" 
                         />
                         <div className="text-xs space-y-1">
